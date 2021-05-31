@@ -1,0 +1,8 @@
+# Created by .ignore support plugin (hsz.mobi)
+.gitignore
+.idea/
+__pycache__/
+log_3D_pred_proba/
+log_3D_pred_proba_img/
+log_3D_pred_proba_img2/
+
