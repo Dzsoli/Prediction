@@ -5,6 +5,160 @@ from torchvision.utils import make_grid
 from BPtools.utils.trajectory_plot import boundary_for_grid
 
 
+class Encoder_Grid3D_3(nn.Module):
+    def __init__(self, kernel=2):
+        super(Encoder_Grid3D_3, self).__init__()
+        T = 4
+        self.layers = nn.Sequential(
+            nn.Conv3d(1, 3, kernel_size=(2, 5, 3), stride=1, padding=(2, 2, 1)),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv3d(3, 5, kernel_size=(3, 8, 3), stride=1, padding=(1, 1, 1)),
+            nn.BatchNorm3d(5),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv3d(5, 8, kernel_size=(3, 8, T), stride=1, padding=0),
+            nn.BatchNorm3d(8),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv3d(8, 5, kernel_size=(4, 4, T), stride=(1, 2, 1), padding=(1, 2, 0)),
+            nn.BatchNorm3d(5),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv3d(5, 4, kernel_size=(4, 4, T), stride=(2, 2, 1), padding=(1, 2, 0)),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv3d(4, 3, kernel_size=(4, 4, T-1), stride=(2, 2, 1), padding=(1, 2, 0)),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv3d(3, 1, kernel_size=1, padding=0)
+        )
+
+    def forward(self, x):
+        return self.layers(x).squeeze(4)
+
+
+class Decoder_Grid3D_3(nn.Module):
+    def __init__(self, latent_dim=155):
+        super(Decoder_Grid3D_3, self).__init__()
+        feature = 4
+        T = 4
+
+        self.convtr = nn.Sequential(
+            nn.ConvTranspose3d(1, feature, kernel_size=(3, 3, 1), stride=1, padding=0),
+            nn.BatchNorm3d(feature),
+            nn.LeakyReLU(0.2),
+            # N, 32, 4, 16
+
+            nn.ConvTranspose3d(feature, feature, kernel_size=(3, 3, 1), stride=(1, 1, 1), padding=(2, 2, 0)),
+            nn.BatchNorm3d(feature),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose3d(feature, feature * 2, kernel_size=(4, 4, 3), stride=(2, 2, 1), padding=(1, 2, 1)),
+            nn.BatchNorm3d(feature * 2),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose3d(feature * 2, feature * 3, kernel_size=(4, 4, T), stride=(1, 2, 1), padding=(1, 2, 0)),
+            nn.BatchNorm3d(feature * 3),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose3d(feature * 3, feature * 2, kernel_size=(3, 8, T), stride=(1, 1, 1), padding=(1, 1, 0)),
+            nn.BatchNorm3d(feature * 2),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose3d(feature * 2, feature, kernel_size=(3, 8, T), stride=(2, 2, 1), padding=(1, 2, 0),
+                               output_padding=(0, 1, 0)),
+            nn.BatchNorm3d(feature),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose3d(feature, 1, kernel_size=(2, 4, T-1), stride=1, padding=(1, 2, 0)),
+            # nn.AdaptiveAvgPool2d((16, 128)),
+            nn.Sigmoid()
+            # N, 1, 16, 128
+
+        )
+
+    def forward(self, l):
+        return self.convtr(l.unsqueeze(4))
+
+
+class Encoder_Grid3D_2(nn.Module):
+    def __init__(self, kernel=2):
+        super(Encoder_Grid3D_2, self).__init__()
+        T = 4
+        self.layers = nn.Sequential(
+            nn.Conv3d(1, 3, kernel_size=(2, 5, 1), stride=1, padding=(2, 2, 0)),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv3d(3, 5, kernel_size=(3, 8, 1), stride=1, padding=(1, 1, 0)),
+            nn.BatchNorm3d(5),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv3d(5, 8, kernel_size=(3, 8, T), stride=1, padding=0),
+            nn.BatchNorm3d(8),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv3d(8, 5, kernel_size=(4, 4, T), stride=(1, 2, 1), padding=(1, 2, 0)),
+            nn.BatchNorm3d(5),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv3d(5, 4, kernel_size=(4, 4, T), stride=(2, 2, 1), padding=(1, 2, 0)),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv3d(4, 3, kernel_size=(4, 4, T-1), stride=(2, 2, 1), padding=(1, 2, 0)),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv3d(3, 1, kernel_size=1, padding=0)
+        )
+
+    def forward(self, x):
+        return self.layers(x).squeeze(4)
+
+
+class Decoder_Grid3D_2(nn.Module):
+    def __init__(self, latent_dim=155):
+        super(Decoder_Grid3D_2, self).__init__()
+        feature = 4
+        T = 4
+
+        self.convtr = nn.Sequential(
+            nn.ConvTranspose3d(1, feature, kernel_size=(3, 3, 1), stride=1, padding=0),
+            nn.BatchNorm3d(feature),
+            nn.LeakyReLU(0.2),
+            # N, 32, 4, 16
+
+            nn.ConvTranspose3d(feature, feature, kernel_size=(3, 3, 1), stride=(1, 1, 1), padding=(2, 2, 0)),
+            nn.BatchNorm3d(feature),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose3d(feature, feature * 2, kernel_size=(4, 4, 1), stride=(2, 2, 1), padding=(1, 2, 0)),
+            nn.BatchNorm3d(feature * 2),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose3d(feature * 2, feature * 3, kernel_size=(4, 4, T), stride=(1, 2, 1), padding=(1, 2, 0)),
+            nn.BatchNorm3d(feature * 3),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose3d(feature * 3, feature * 2, kernel_size=(3, 8, T), stride=(1, 1, 1), padding=(1, 1, 0)),
+            nn.BatchNorm3d(feature * 2),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose3d(feature * 2, feature, kernel_size=(3, 8, T), stride=(2, 2, 1), padding=(1, 2, 0),
+                               output_padding=(0, 1, 0)),
+            nn.BatchNorm3d(feature),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose3d(feature, 1, kernel_size=(2, 4, T-1), stride=1, padding=(1, 2, 0)),
+            # nn.AdaptiveAvgPool2d((16, 128)),
+            nn.Sigmoid()
+            # N, 1, 16, 128
+
+        )
+
+    def forward(self, l):
+        return self.convtr(l.unsqueeze(4))
+
+
 class Encoder_Grid3D(nn.Module):
     def __init__(self, kernel=2):
         super(Encoder_Grid3D, self).__init__()
@@ -195,8 +349,8 @@ class ADVAE3D(BPModule):
         # '''
         with torch.no_grad():
             # if step % 10 == 1:
-            img_fake_grid = make_grid(boundary_for_grid(pred[0].permute(3,0,1,2)), normalize=True, nrow=1)
-            img_real_grid = make_grid(boundary_for_grid(batch[0].permute(3,0,1,2)), normalize=True, nrow=1)
+            img_fake_grid = make_grid(boundary_for_grid(pred[50].permute(3,0,1,2)), normalize=True, nrow=1)
+            img_real_grid = make_grid(boundary_for_grid(batch[50].permute(3,0,1,2)), normalize=True, nrow=1)
 
             img_latent_dist_grid = make_grid(boundary_for_grid(z[:16]), normalize=True, nrow=2)
             img_prior_dist_grid = make_grid(boundary_for_grid(z_real[:16]), normalize=True, nrow=2)
