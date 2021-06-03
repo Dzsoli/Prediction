@@ -3,7 +3,7 @@ from BPtools.utils.models import *
 from BPtools.metrics.criterions import KLD_BCE_loss_2Dvae
 from model import *
 from data_moduls import *
-from pred_3D import *
+from grid_3D import *
 
 
 # Adatok az OccupancyGrid tanuláshoz

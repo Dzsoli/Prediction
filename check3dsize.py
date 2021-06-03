@@ -1,4 +1,4 @@
-from pred_3D import *
+from grid_3D import *
 from model import *
 
 m = nn.Conv3d(16, 33, 3, stride=1)
