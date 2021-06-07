@@ -14,3 +14,10 @@ class Encoder_recurrent_grid2d(nn.Module):
 
     def forward(self, x):
         pass
+
+
+class Decoder_recurrent_grid2d(nn.Module):
+    def __init__(self):
+        super(Decoder_recurrent_grid2d, self).__init__()
+
+        self.rnn
