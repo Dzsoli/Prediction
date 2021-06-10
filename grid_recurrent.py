@@ -30,6 +30,11 @@ class Encoder_recurrent_grid2d(nn.Module):
         return hidden, cell
 
 
+class Decoder_recurrent_grid2d(nn.Module):
+    def __init__(self):
+        super(Decoder_recurrent_grid2d, self).__init__()
+
+        self.rnn
 
 
 model = Encoder_recurrent_grid2d(64,64,1,True)
