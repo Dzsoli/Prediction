@@ -32,3 +32,7 @@ venv_pred/Lib/site-packages/BPtools/utils/trajectory_plot.py
 venv_pred/Lib/site-packages/BPtools/utils/vehicle.py
 venv_pred/Scripts/
 venv_pred/pyvenv.cfg
+losses.csv
+losses.xlsx
+log_*
+

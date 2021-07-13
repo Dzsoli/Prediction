@@ -22,12 +22,10 @@ class Prediction_trajectory_grid3d(BPModule):
         self.mse = nn.MSELoss()
         self.losses_keys = ["train", "valid"]
 
-
     def mse_diff(self, traj2, pred):
         d_traj2 = traj2[:,:,1:] - traj2[:,:,0:-1]
         d_pred = pred[:,:,1:] - pred[:,:,0:-1]
         return self.mse(d_traj2, d_pred)
-
 
     def sampler(self, mu, logvar):
         std = logvar.mul(0.5).exp_()
@@ -54,7 +52,7 @@ class Prediction_trajectory_grid3d(BPModule):
         for traj1, traj2, grid1 in zip(*self.trainer.dataloaders["train"]):
             pred, mu, logvar = self(traj1, grid1)
             loss = self.mse(traj2, pred)
-            loss += 0.1 * self.mse_diff(traj2, pred)
+            loss += 10 * self.mse_diff(traj2, pred)
             loss += 0.1 * self.kld_loss(mu, logvar)
             loss.backward()
             epoch_loss += loss.item()
@@ -64,6 +62,27 @@ class Prediction_trajectory_grid3d(BPModule):
         N = len(self.trainer.dataloaders["train"][0])
         self.trainer.losses["train"].append(epoch_loss / N)
 
+        indexes = [1, 2, 3, 4, 5, 6]
+        img_batch = np.zeros((len(indexes), 3, 480, 640))
+        i = 0
+        traj2_mod = traj2 + traj1[:, :, -1][:, :, None]
+        pred_mod = pred + traj1[:, :, -1][:, :, None]
+        with torch.no_grad():
+            # trajektória képek!
+            if step % 10 == 0:
+                for n in indexes:
+                    real_1 = np.transpose(np.array(traj1.to('cpu'))[n], (1, 0))
+                    real_2 = np.transpose(np.array(traj2_mod.to('cpu'))[n], (1, 0))
+                    out = np.transpose(np.array(pred_mod.to('cpu'))[n], (1, 0))
+
+                    img = trajs_to_img_2("Real and generated. N= " + str(n), traj_1=real_1, traj_2=real_2,
+                                         prediction=out)
+                    img_real_gen = PIL.Image.open(img)
+                    img_real_gen = ToTensor()(img_real_gen)
+                    img_batch[i] = img_real_gen[0:3]
+                    i = i + 1
+                self.trainer.writer.add_images("Train Real & Out", img_batch, step)
+
     def validation_step(self, step):
         self.eval()
         epoch_loss = 0
@@ -71,14 +90,14 @@ class Prediction_trajectory_grid3d(BPModule):
         for traj1, traj2, grid1 in zip(*self.trainer.dataloaders["valid"]):
             pred, mu, logvar = self(traj1, grid1)
             loss = self.mse(traj2, pred)
-            loss += 0.1 * self.mse_diff(traj2, pred)
+            loss += 10 * self.mse_diff(traj2, pred)
             loss += 0.1 * self.kld_loss(mu, logvar)
             epoch_loss += loss.item()
 
         N = len(self.trainer.dataloaders["valid"][0])
         self.trainer.losses["valid"].append(epoch_loss / N)
 
-        indexes = [1,2,3,4]
+        indexes = [1,2,3,4,5,6]
         img_batch = np.zeros((len(indexes), 3, 480, 640))
         i = 0
         traj2_mod = traj2 + traj1[:, :, -1][:, :, None]
@@ -97,13 +116,14 @@ class Prediction_trajectory_grid3d(BPModule):
                     img_real_gen = ToTensor()(img_real_gen)
                     img_batch[i] = img_real_gen[0:3]
                     i = i + 1
-                self.trainer.writer.add_images("Real & Out", img_batch, step)
+                self.trainer.writer.add_images("Valid Real & Out", img_batch, step)
 
     def configure_optimizers(self):
         return optim.Adam(list(self.traj_enc.parameters()) +
                           list(self.traj_dec.parameters()) +
                           list(self.merge_z.parameters()) +
-                          list(self.grid_enc.parameters()), lr=0.001)
+                          list(self.grid_enc.parameters())
+                          , lr=0.001)
 
 
 class MergeNet(nn.Module):
@@ -129,16 +149,16 @@ if __name__ == "__main__":
     traj_enc = EncoderBN(2, 60, 10)
     traj_dec = VarDecoderConv1d_3(2, 60, 10)
     enc = Encoder_Grid3D_3()
-    # dec = Decoder_Grid3D_3()
-    # disc = Discriminator2D()
-    # aae3d = ADVAE3D(encoder=enc, decoder=dec, discriminator=disc)
-    # aae3d.load_state_dict(torch.load("model_state_dict_3D_pred_proba_img_type3_50_1_13"))
-    # grid_enc = aae3d.encoder
-    # del(aae3d)
+    dec = Decoder_Grid3D_3()
+    disc = Discriminator2D()
+    aae3d = ADVAE3D(encoder=enc, decoder=dec, discriminator=disc)
+    aae3d.load_state_dict(torch.load("model_state_dict_3D_pred_proba_img_type3_50_1_13"))
+    grid_enc = aae3d.encoder
+    del(aae3d)
     grid_enc = enc
     merge = MergeNet()
     model = Prediction_trajectory_grid3d(traj_enc,traj_dec,grid_enc, merge)
-    dm = DummyPredictionDataModul("D:/dataset", split_ratio=0.2, batch_size=312)
+    dm = DummyPredictionDataModul("D:/dataset", split_ratio=0.2, batch_size=300)
     # dm.prepare_data()
     # for traj1, traj2 in zip(dm.traj_1, dm.traj_2):
     #     print(traj1.shape)
@@ -151,5 +171,5 @@ if __name__ == "__main__":
     #         print(traj.shape)
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
-    trainer = BPTrainer(epochs=1000, name="dummy_derivate_traingrid-withoutplretrain_prediction_model")
+    trainer = BPTrainer(epochs=1000, name="dummy_derivate10_gridtrain_prediction_model_fulldata")
     trainer.fit(model=model, datamodule=dm)

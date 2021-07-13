@@ -134,6 +134,12 @@ class DummyPredictionDataModul(BPDataModule):
         self.traj_2 = self.traj_2 - self.traj_1[:, :, -1][:, :, None]
         self.traj_1 = self.traj_1 - self.traj_1[:, :, 0][:, :, None]
 
+        if self.shuffle:
+            randomperm = torch.randperm(self.traj_1.shape[0])
+            self.traj_1 = self.traj_1[randomperm]
+            self.traj_2 = self.traj_2[randomperm]
+            self.grids_1 = self.grids_1[randomperm]
+
         print(self.traj_1.dtype)
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.traj_1 = torch.split(torch.tensor(self.traj_1.astype(np.float)).float().to(device), int((1 - q) * N))
