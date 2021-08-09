@@ -166,3 +166,84 @@ class DummyPredictionDataModul(BPDataModule):
 
     def test_dataloader(self, *args, **kwargs):
         return self.test
+
+
+class RecurrentPredictionDataModul(BPDataModule):
+    def __init__(self, path, split_ratio, batch_size=1560, shuffle=True):
+        super(RecurrentPredictionDataModul,self).__init__()
+        self.path = path
+        self.q = split_ratio
+        self.shuffle = shuffle
+        self.train = None
+        self.valid = None
+        self.test = None
+        self.traj_1 = None
+        self.traj_2 = None
+        self.grids_1 = None
+        self.labels = None
+        self.batch_size = batch_size
+
+    def prepare_data(self, ):
+        self.traj_1 = np.load(self.path + "/trajectories1.npy", allow_pickle=True)
+        self.traj_2 = np.load(self.path + "/trajectories2.npy", allow_pickle=True)
+        self.grids_1 = np.load(self.path + "/grids1.npy", allow_pickle=True)
+        self.labels = np.load(self.path + "/labels.npy", allow_pickle=True)
+        print(self.traj_1.shape)
+        self.set_has_prepared_data(True)
+
+    def setup(self, stage: Optional[str] = None):
+        feature_dim = self.traj_1.shape[2]
+        seq_length = self.traj_1.shape[1]
+        N = self.traj_1.shape[0]
+        q = self.q
+        self.traj_1 = np.transpose(self.traj_1, (0, 2, 1))
+        self.traj_2 = np.transpose(self.traj_2, (0, 2, 1))
+
+        # for traj1, traj2 in zip(self.traj_1, self.traj_2):
+        #     print(traj1.shape)
+        #     print(traj2.shape)
+        #     trajs_to_img_2(tr1=np.transpose(traj1, (1,0)),tr2=np.transpose(traj2, (1,0)),label="valami")
+
+        self.grids_1 = np.expand_dims(self.grids_1, axis=1).transpose((0, 1, 3, 4, 2))
+        print(self.grids_1.shape)
+        print(self.traj_2.shape)
+
+        self.traj_1[:, 1, :] = 0.05 * self.traj_1[:, 1, :]
+        self.traj_2[:, 1, :] = 0.05 * self.traj_2[:, 1, :]
+
+        # self.traj_2 = self.traj_2 - self.traj_1[:, :, -1][:, :, None]
+        self.traj_2 = self.traj_2 - self.traj_1[:, :, 0][:, :, None]
+        self.traj_1 = self.traj_1 - self.traj_1[:, :, 0][:, :, None]
+
+        if self.shuffle:
+            randomperm = torch.randperm(self.traj_1.shape[0])
+            self.traj_1 = self.traj_1[randomperm]
+            self.traj_2 = self.traj_2[randomperm]
+            self.grids_1 = self.grids_1[randomperm]
+
+        print(self.traj_1.dtype)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.traj_1 = torch.split(torch.tensor(self.traj_1.astype(np.float)).float().to(device), int((1 - q) * N))
+        self.traj_2 = torch.split(torch.tensor(self.traj_2.astype(np.float)).float().to(device), int((1 - q) * N))
+        self.grids_1 = torch.split(torch.tensor(self.grids_1).float().to(device), int((1 - q) * N))
+        # self.labels =
+
+        keys = ["traj1", "traj2", "grid2"]
+
+        self.train = [torch.split(self.traj_1[0], self.batch_size),
+                      torch.split(self.traj_2[0], self.batch_size),
+                      torch.split(self.grids_1[0], self.batch_size)]
+
+        self.valid = [torch.split(self.traj_1[1], self.batch_size),
+                      torch.split(self.traj_2[1], self.batch_size),
+                      torch.split(self.grids_1[1], self.batch_size)]
+        # print(self.train.keys(), self.train["grid1"][0].shape)
+
+    def train_dataloader(self, *args, **kwargs):
+        return self.train
+
+    def val_dataloader(self, *args, **kwargs):
+        return self.valid
+
+    def test_dataloader(self, *args, **kwargs):
+        return self.test
