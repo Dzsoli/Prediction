@@ -223,9 +223,9 @@ class RecurrentPredictionDataModul(BPDataModule):
 
         print(self.traj_1.dtype)
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.traj_1 = torch.split(torch.tensor(self.traj_1.astype(np.float)).float().to(device), int((1 - q) * N))
-        self.traj_2 = torch.split(torch.tensor(self.traj_2.astype(np.float)).float().to(device), int((1 - q) * N))
-        self.grids_1 = torch.split(torch.tensor(self.grids_1).float().to(device), int((1 - q) * N))
+        self.traj_1 = torch.split(torch.tensor(self.traj_1.astype(np.float)).float(), int((1 - q) * N))  # .float().to(device)
+        self.traj_2 = torch.split(torch.tensor(self.traj_2.astype(np.float)).float(), int((1 - q) * N))
+        self.grids_1 = torch.split(torch.tensor(self.grids_1).float(), int((1 - q) * N))
         # self.labels =
 
         keys = ["traj1", "traj2", "grid2"]
