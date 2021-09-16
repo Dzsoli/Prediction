@@ -78,24 +78,30 @@ class Prediction_trajectory_recurrent(BPModule):
             param.requires_grad = False
         epoch_loss = 0
         for traj1, traj2, grid1 in zip(*self.trainer.dataloaders["train"]):
+            traj1 = traj1.to("cuda")
+            traj2 = traj2.to("cuda")
+            grid1 = grid1.to("cuda")
             prediction, ret_hidden, ret_cell = self(traj1, traj2, grid1)
             loss = self.mse(traj2, prediction)
-            # loss += 10 * self.mse_diff(traj2, prediction)
-            # loss += 0.1 * self.sparse_loss(ret_hidden, ret_cell)
+            loss += 10 * self.mse_diff(traj2, prediction)
+            loss += 1 * self.sparse_loss(ret_hidden, ret_cell)
             loss.backward()
             epoch_loss += loss.item()
             optim_configuration.step()
             optim_configuration.zero_grad()
+            traj1 = traj1.to("cpu")
+            traj2 = traj2.to("cpu")
+            grid1 = grid1.to("cpu")
 
         N = len(self.trainer.dataloaders["train"][0])
         self.trainer.losses["train"].append(epoch_loss / N)
 
-        indexes = [0, 1]
+        indexes = [0, 1, 2, 3, 4, 5, 6, 7]
         img_batch = np.zeros((len(indexes), 3, 480, 640))
         i = 0
         with torch.no_grad():
             # trajektória képek!
-            if step % 10 == 0:
+            if step % 1 == 0:
                 for n in indexes:
                     real_1 = np.transpose(np.array(traj1.to('cpu'))[n], (1, 0))
                     real_2 = np.transpose(np.array(traj2.to('cpu'))[n], (1, 0))
@@ -114,21 +120,27 @@ class Prediction_trajectory_recurrent(BPModule):
         epoch_loss = 0
 
         for traj1, traj2, grid1 in zip(*self.trainer.dataloaders["valid"]):
+            traj1 = traj1.to("cuda")
+            traj2 = traj2.to("cuda")
+            grid1 = grid1.to("cuda")
             prediction, ret_hidden, ret_cell = self(traj1, traj2, grid1)
             loss = self.mse(traj2, prediction)
             loss += 10 * self.mse_diff(traj2, prediction)
-            loss += 0.1 * self.sparse_loss(ret_hidden, ret_cell)
+            loss += 1 * self.sparse_loss(ret_hidden, ret_cell)
             epoch_loss += loss.item()
+            traj1 = traj1.to("cpu")
+            traj2 = traj2.to("cpu")
+            grid1 = grid1.to("cpu")
 
         N = len(self.trainer.dataloaders["valid"][0])
         self.trainer.losses["valid"].append(epoch_loss / N)
 
-        indexes = [0, 1]
+        indexes = [0, 1, 2, 3, 4, 5, 6, 7]
         img_batch = np.zeros((len(indexes), 3, 480, 640))
         i = 0
         with torch.no_grad():
             # trajektória képek!
-            if step % 10 == 0:
+            if step % 2 == 0:
                 for n in indexes:
                     real_1 = np.transpose(np.array(traj1.to('cpu'))[n], (1, 0))
                     real_2 = np.transpose(np.array(traj2.to('cpu'))[n], (1, 0))
@@ -149,49 +161,51 @@ class Prediction_trajectory_recurrent(BPModule):
 
 
 class RecurrentCombinedEncoder(nn.Module):
-    def __init__(self, feature=66, input_size=66, hidden_size=2):
+    def __init__(self, feature=66, input_size=66, hidden_size=32):
         super(RecurrentCombinedEncoder, self).__init__()
         self.feature = feature
         self.hidden_size = hidden_size
         self.input_size = input_size
         self.linear = nn.Linear(feature, input_size)
         self.relu = nn.ReLU()
-        self.rnn = nn.LSTM(input_size, hidden_size, num_layers=1, batch_first=True, bidirectional=False)
+        self.rnn = nn.LSTM(input_size, hidden_size, num_layers=2, batch_first=True, bidirectional=False)
 
     def forward(self, x):
         # x: batch, 66, seq
         batch, feature, seq = x.shape
-        # mixed = self.relu(self.linear(x.permute(0,2,1).reshape((batch * seq, feature)))).reshape(
-        #     (batch, seq, self.input_size))
+        mixed = self.relu(self.linear(x.permute(0,2,1).reshape((batch * seq, feature)))).reshape(
+            (batch, seq, self.input_size))
         # batch, seq, feature
-        _, (hidden, cell) = self.rnn(x.permute(0,2,1))
+        # _, (hidden, cell) = self.rnn(x.permute(0,2,1))
+        _, (hidden, cell) = self.rnn(mixed)
         return hidden, cell
 
 
 class RecurrentDecoder(nn.Module):
-    def __init__(self, feature=2, input_size=2, hidden_size=2):
+    def __init__(self, feature=2, input_size=2, hidden_size=32):
         super(RecurrentDecoder, self).__init__()
         self.feature = feature
         self.hidden_size = hidden_size
         self.input_size = input_size
         self.linear = nn.Linear(hidden_size, input_size)
-        self.rnn = nn.LSTM(input_size, hidden_size, num_layers=1, batch_first=True, bidirectional=False)
+        self.rnn = nn.LSTM(input_size, hidden_size, num_layers=2, batch_first=True, bidirectional=False)
 
     def forward(self, dec_input, hidden, cell):
         # dec_input: batch, (1), feature
         output, (hidden, cell) = self.rnn(dec_input.unsqueeze(1), (hidden, cell))
         # output: batch, 1, feature
-        # output = self.linear(output.squeeze(1))
-        return output.squeeze(1), hidden, cell
+        output = self.linear(output.squeeze(1))
+        return output, hidden, cell
 
 
 if __name__ == "__main__":
-    dm = RecurrentPredictionDataModul("../dataset", split_ratio=0.2, batch_size=50)
+    # dm = RecurrentPredictionDataModul("../dataset", split_ratio=0.2, batch_size=50)
+    dm = RecurrentPredictionDataModul("D:/dataset", split_ratio=0.2, batch_size=210)
     enc = RecurrentCombinedEncoder()
     dec = RecurrentDecoder()
     # grid
     grid_enc = GridEncoder()
     grid_enc.load_state_dict(torch.load('aae_gauss_grid_encoder_param'))
     model = Prediction_trajectory_recurrent(decoder=dec, encoder=enc, grid_encoder=grid_enc)
-    trainer = BPTrainer(epochs=1000, name="recurrent_pred_proba")
+    trainer = BPTrainer(epochs=1000, name="recurrent_pred_proba_batch2cuda_mixed_encoder_sparseLam1_diff_L2")
     trainer.fit(model=model, datamodule=dm)
