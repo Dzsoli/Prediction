@@ -186,7 +186,7 @@ class RecurrentDecoder(nn.Module):
 
 
 if __name__ == "__main__":
-    dm = RecurrentPredictionDataModul("D:/dataset", split_ratio=0.2, batch_size=50)
+    dm = RecurrentPredictionDataModul("../dataset", split_ratio=0.2, batch_size=50)
     enc = RecurrentCombinedEncoder()
     dec = RecurrentDecoder()
     # grid

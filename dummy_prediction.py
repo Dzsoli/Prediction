@@ -158,7 +158,7 @@ if __name__ == "__main__":
     grid_enc = enc
     merge = MergeNet()
     model = Prediction_trajectory_grid3d(traj_enc,traj_dec,grid_enc, merge)
-    dm = DummyPredictionDataModul("D:/dataset", split_ratio=0.2, batch_size=300)
+    dm = DummyPredictionDataModul("../dataset", split_ratio=0.2, batch_size=300)
     # dm.prepare_data()
     # for traj1, traj2 in zip(dm.traj_1, dm.traj_2):
     #     print(traj1.shape)
@@ -171,5 +171,5 @@ if __name__ == "__main__":
     #         print(traj.shape)
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
-    trainer = BPTrainer(epochs=1000, name="dummy_derivate10_gridtrain_prediction_model_fulldata")
+    trainer = BPTrainer(epochs=1000, name="dummy_derivate10_gridtrain_prediction_model_fulldata_tanszek")
     trainer.fit(model=model, datamodule=dm)
