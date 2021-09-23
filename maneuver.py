@@ -22,8 +22,9 @@ class Maneuver_prediction(BPModule):
         self.enc_traj = encoder_traj
         self.enc_grid = encoder_grid
         self.grid_encoder = grid_encoder
+        self.mlp = ResidualMLP()
         self.mlp_mu = ResidualMLP()
-        self.mlp_logvar = ResidualDense()
+        self.mlp_logvar = ResidualMLP()
         self.mse = nn.BCELoss()
         self.losses_keys = ["train", "valid"]
 
@@ -59,8 +60,22 @@ class Maneuver_prediction(BPModule):
 
 
 class ResidualMLP(nn.Module):
-    # todo: kell residual blokk ősosztály és abból felépíteni skálázhatóan
-    pass
+    def __init__(self, init):
+        super(ResidualMLP, self).__init__()
+        self.blocks: nn.ModuleList = nn.ModuleList()
+        m = None
+        for n in init:
+            if m is None:
+                m = n
+                continue
+            else:
+                self.blocks.append(ResBlockFully(m,n))
+                m = n
+
+    def forward(self, x):
+        for block in self.blocks:
+            x = block(x)
+        return x
 
 
 class ResBlockFully(nn.Module):
@@ -78,4 +93,10 @@ class ResBlockFully(nn.Module):
 
         out += residual
         out = self.bn(self.lin3(out))
-        return
+        return out
+
+L = [50, 30, 10]
+t = torch.rand((10,50))
+m = ResidualMLP(L)
+# print(m)
+print(m(t).shape)
