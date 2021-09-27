@@ -17,7 +17,7 @@ import random
 
 
 class Maneuver_prediction(BPModule):
-    def __init__(self, encoder_traj, encoder_grid, grid_encoder):
+    def __init__(self, encoder_traj, encoder_grid, grid_encoder, keys):
         super(Maneuver_prediction, self).__init__()
         self.enc_traj = encoder_traj
         self.enc_grid = encoder_grid
@@ -26,7 +26,7 @@ class Maneuver_prediction(BPModule):
         self.mlp_mu = ResidualMLP()
         self.mlp_logvar = ResidualMLP()
         self.bce = nn.BCELoss()
-        self.losses_keys = ["train", "valid"]
+        self.losses_keys = ["train", "valid"] + keys
         self.softmax = nn.Softmax()
 
     def sampler(self, mu, logvar):
@@ -67,14 +67,27 @@ class Maneuver_prediction(BPModule):
         self.train()
 
         epoch_loss = 0
+        epoch_kld_loss = 0
         for traj_p, grid, labels in zip(*self.trainer.dataloaders["train"]):
-            traj_p=traj_p.to("cuda")
-            grid=grid.to("cuda")
-            labels = labels.to("cuda")
+            traj_p.to("cuda")
+            grid.to("cuda")
+            labels.to("cuda")
             mu, logvar, sampled_z = self(traj_p, grid)
-            loss = self.bce(sampled_z, labels) + 
+            loss = self.bce(sampled_z, labels)
+            epoch_loss += loss.item()
+            if "kld_train" in self.losses_keys:
+                kld_loss = self.kld_loss(mu, logvar)
+                epoch_kld_loss += kld_loss.item()
+                loss += kld_loss
+            loss.backward()
+            optim_config.step()
+            traj_p.to("cpu")
+            grid.to("cpu")
+            labels.to("cpu")
 
-
+    def validation_step(self, step):
+        self.eval()
+        epoch_loss = 0
 
 class ResidualMLP(nn.Module):
     def __init__(self, init):
