@@ -25,8 +25,9 @@ class Maneuver_prediction(BPModule):
         self.mlp = ResidualMLP()
         self.mlp_mu = ResidualMLP()
         self.mlp_logvar = ResidualMLP()
-        self.mse = nn.BCELoss()
+        self.bce = nn.BCELoss()
         self.losses_keys = ["train", "valid"]
+        self.softmax = nn.Softmax()
 
     def sampler(self, mu, logvar):
         std = logvar.mul(0.5).exp_()
@@ -56,7 +57,23 @@ class Maneuver_prediction(BPModule):
         traj_z = self.enc_traj(traj_p)
         # nem kell a cell state
         # összeg, nem konkatenálás
-        mu, logvar = self.mlp(grid_z_z + traj_z)
+        internal = self.mlp(grid_z_z + traj_z)
+        mu = self.mlp_mu(internal)
+        logvar = self.mlp_logvar(internal)
+        sampled_z = self.softmax(self.sampler(mu, logvar))
+        return mu, logvar, sampled_z
+
+    def training_step(self, optim_config, step):
+        self.train()
+
+        epoch_loss = 0
+        for traj_p, grid, labels in zip(*self.trainer.dataloaders["train"]):
+            traj_p=traj_p.to("cuda")
+            grid=grid.to("cuda")
+            labels = labels.to("cuda")
+            mu, logvar, sampled_z = self(traj_p, grid)
+            loss = self.bce(sampled_z, labels) + 
+
 
 
 class ResidualMLP(nn.Module):
@@ -95,8 +112,8 @@ class ResBlockFully(nn.Module):
         out = self.bn(self.lin3(out))
         return out
 
-L = [50, 30, 10]
-t = torch.rand((10,50))
+L = [500, 30, 10]
+t = torch.rand((10,500))
 m = ResidualMLP(L)
 # print(m)
 print(m(t).shape)
