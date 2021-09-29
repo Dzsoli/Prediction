@@ -199,13 +199,13 @@ class RecurrentDecoder(nn.Module):
 
 
 if __name__ == "__main__":
-    # dm = RecurrentPredictionDataModul("../dataset", split_ratio=0.2, batch_size=50)
-    dm = RecurrentPredictionDataModul("D:/dataset", split_ratio=0.2, batch_size=210)
+    dm = RecurrentPredictionDataModul("../dataset", split_ratio=0.2, batch_size=210)
+    # dm = RecurrentPredictionDataModul("D:/dataset", split_ratio=0.2, batch_size=210)
     enc = RecurrentCombinedEncoder()
     dec = RecurrentDecoder()
     # grid
     grid_enc = GridEncoder()
     grid_enc.load_state_dict(torch.load('aae_gauss_grid_encoder_param'))
     model = Prediction_trajectory_recurrent(decoder=dec, encoder=enc, grid_encoder=grid_enc)
-    trainer = BPTrainer(epochs=1000, name="recurrent_pred_proba_batch2cuda_mixed_encoder_sparseLam1_diff_L2")
+    trainer = BPTrainer(epochs=1000, name="0_recurrent_pred_proba_batch2cuda_mixed_encoder_sparseLam1_diff_L2")
     trainer.fit(model=model, datamodule=dm)

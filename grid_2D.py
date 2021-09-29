@@ -82,6 +82,7 @@ class GridEncoder(nn.Module):
         # [N,  1, 4, 16]
 
     def forward(self, x):
+        print(x.get_device())
         h = self.conv(x)
         return self.mu(h), self.logvar(h)  # .squeeze(1).squeeze(1)
 
