@@ -57,8 +57,8 @@ class Maneuver_prediction(BPModule):
         # batch, 64, seq
 
         # csak az utolsó hidden state kell
-        grid_z_z = self.enc_grid(grid_z)
-        traj_z = self.enc_traj(traj_p)
+        grid_z_z, _ = self.enc_grid(grid_z)
+        traj_z, _ = self.enc_traj(traj_p)
         # nem kell a cell state
         # összeg, nem konkatenálás
         internal = self.mlp(grid_z_z + traj_z)
@@ -159,6 +159,7 @@ class ResBlockFully(nn.Module):
         out = self.relu(self.lin2(out))
 
         out += residual
+        # TODO: meg kell nézni hogy itt mi a baj, és lehet hogy a hidden-ből csak az utolsó kell
         out = self.bn(self.lin3(out))
         return out
 
@@ -183,7 +184,8 @@ if __name__ == "__main__":
     # m = ResidualMLP(L)
     grid_enc = GridEncoder()
     # grid_enc.to("cuda")
-    dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2, batch_size=100)
+    # dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2, batch_size=100)
+    dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=100)
     grid_enc.load_state_dict(torch.load('aae_gauss_grid_encoder_param'))
     model = Maneuver_prediction(32, grid_enc, ["kld_train", "kld_valid"])
     trainer = BPTrainer(epochs=1000, name="proba_recurrent_maneuver_detection")
