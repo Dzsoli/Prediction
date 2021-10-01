@@ -30,7 +30,7 @@ class Maneuver_prediction(BPModule):
         self.mlp_logvar = ResidualMLP(np.round(np.linspace(internal_size//2,3,2)))
         self.bce = nn.BCELoss()
         self.losses_keys = ["train", "valid"] + keys
-        self.softmax = nn.Softmax()
+        self.softmax = nn.Softmax(dim=1)
 
     def sampler(self, mu, logvar):
         std = logvar.mul(0.5).exp_()
@@ -48,7 +48,7 @@ class Maneuver_prediction(BPModule):
         # traj: batch, feature, seq
         # grid: batch, 1, 16, 128, seq
         batch_size, feature, seq_length = traj_p.size()
-        print("grid device: ", grid.device)
+        # print("grid device: ", grid.device)
         grid_z, _ = self.grid_encoder(grid.permute((0, 4, 1, 2, 3)).reshape((batch_size * seq_length, 1, 16, 128)))
         # batch * seq, 1, 4, 16
 
@@ -60,7 +60,10 @@ class Maneuver_prediction(BPModule):
         grid_z_z, _ = self.enc_grid(grid_z)
         traj_z, _ = self.enc_traj(traj_p)
         # nem kell a cell state
-        # összeg, nem konkatenálás
+        # hiddenből csak utolsó réteg kell
+        # összeg, és nem konkatenálás
+        grid_z_z = grid_z_z[-1].squeeze(0)
+        traj_z = traj_z[-1].squeeze(0)
         internal = self.mlp(grid_z_z + traj_z)
         mu = self.mlp_mu(internal)
         logvar = self.mlp_logvar(internal)
@@ -184,8 +187,8 @@ if __name__ == "__main__":
     # m = ResidualMLP(L)
     grid_enc = GridEncoder()
     # grid_enc.to("cuda")
-    # dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2, batch_size=100)
-    dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=100)
+    dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2, batch_size=80)
+    # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=100)
     grid_enc.load_state_dict(torch.load('aae_gauss_grid_encoder_param'))
     model = Maneuver_prediction(32, grid_enc, ["kld_train", "kld_valid"])
     trainer = BPTrainer(epochs=1000, name="proba_recurrent_maneuver_detection")
