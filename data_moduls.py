@@ -301,7 +301,7 @@ class RecurrentManeuverDataModul(BPDataModule):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.traj_1 = torch.split(torch.tensor(self.traj_1.astype(np.float)).float(), int((1 - q) * N))  # .float().to(device)
         self.grids_1 = torch.split(torch.tensor(self.grids_1).float(), int((1 - q) * N))
-        self.labels = torch.split(torch.tensor(self.labels).float(), int((1 - q) * N))
+        self.labels = torch.split(torch.tensor(self.labels).long(), int((1 - q) * N))
 
         keys = ["traj1", "traj2", "grid2"]
 

@@ -9,6 +9,7 @@ from data_moduls import *
 from grid_3D import *
 from grid_2D import *
 from recurrent_prediction import RecurrentCombinedEncoder
+from focal_loss import *
 from model import Discriminator2D
 from data_moduls import DummyPredictionDataModul
 # from torchvision.utils import make_grid
@@ -28,9 +29,10 @@ class Maneuver_prediction(BPModule):
         self.mlp = ResidualMLP(np.round(np.linspace(internal_size,internal_size//2,5)))
         self.mlp_mu = ResidualMLP(np.round(np.linspace(internal_size//2,3,2)))
         self.mlp_logvar = ResidualMLP(np.round(np.linspace(internal_size//2,3,2)))
-        self.bce = nn.BCELoss()
+        self.loss_fn = FocalLossMulty([0.49,0.02,0.49],5)
         self.losses_keys = ["train", "valid"] + keys
-        self.softmax = nn.Softmax(dim=1)
+        # todo: losoftmaxot kell használni?
+        self.softmax = nn.LogSoftmax(dim=1)
 
     def sampler(self, mu, logvar):
         std = logvar.mul(0.5).exp_()
@@ -80,7 +82,9 @@ class Maneuver_prediction(BPModule):
             grid = grid.to("cuda")
             labels = labels.to("cuda")
             mu, logvar, sampled_z = self(traj_p, grid)
-            loss = self.bce(sampled_z, labels)
+            # todo: modify labels in every epoch to smooth learning
+            loss = self.loss_fn(sampled_z, labels)
+            # todo: kiszámolni: F score, ACC, TP, FP, FN, az output logaritmukus
             epoch_loss += loss.item()
             if "kld_train" in self.losses_keys:
                 kld_loss = self.kld_loss(mu, logvar)
@@ -91,6 +95,7 @@ class Maneuver_prediction(BPModule):
             traj_p = traj_p.to("cpu")
             grid = grid.to("cpu")
             labels = labels.to("cpu")
+        # todo: kiszámolni: F score, ACC,
 
         N = len(self.trainer.dataloaders["train"][0])
         self.trainer.losses["train"].append(epoch_loss / N)
@@ -106,7 +111,7 @@ class Maneuver_prediction(BPModule):
             grid = grid.to("cuda")
             labels = labels.to("cuda")
             mu, logvar, sampled_z = self(traj_p, grid)
-            loss = self.bce(sampled_z, labels)
+            loss = self.loss_fn(sampled_z, labels)
             epoch_loss += loss.item()
             if "kld_valid" in self.losses_keys:
                 kld_loss = self.kld_loss(mu, logvar)
@@ -187,11 +192,11 @@ if __name__ == "__main__":
     # m = ResidualMLP(L)
     grid_enc = GridEncoder()
     # grid_enc.to("cuda")
-    dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2, batch_size=80)
-    # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=100)
+    # dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2, batch_size=80)
+    dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50)
     grid_enc.load_state_dict(torch.load('aae_gauss_grid_encoder_param'))
     model = Maneuver_prediction(32, grid_enc, ["kld_train", "kld_valid"])
-    trainer = BPTrainer(epochs=1000, name="proba_recurrent_maneuver_detection")
+    trainer = BPTrainer(epochs=1000, name="proba_CE_recurrent_maneuver_detection")
     trainer.fit(model=model, datamodule=dm)
     # print(m)
     # print(m(t).shape)
