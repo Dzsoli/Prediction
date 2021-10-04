@@ -29,7 +29,7 @@ class Maneuver_prediction(BPModule):
         self.mlp = ResidualMLP(np.round(np.linspace(internal_size,internal_size//2,5)))
         self.mlp_mu = ResidualMLP(np.round(np.linspace(internal_size//2,3,2)))
         self.mlp_logvar = ResidualMLP(np.round(np.linspace(internal_size//2,3,2)))
-        self.loss_fn = FocalLossMulty([0.49,0.02,0.49],5)
+        self.loss_fn = FocalLossMulty([0.2,0.2,0.6],5)
         self.losses_keys = ["train", "valid"] + keys
         # todo: losoftmaxot kell használni?
         self.softmax = nn.LogSoftmax(dim=1)
@@ -77,6 +77,7 @@ class Maneuver_prediction(BPModule):
 
         epoch_loss = 0
         epoch_kld_loss = 0
+        epoch_scores = {'tp': 0, 'fn': 0, 'fp': 0, 'tn': 0}
         for traj_p, grid, labels in zip(*self.trainer.dataloaders["train"]):
             traj_p = traj_p.to("cuda")
             grid = grid.to("cuda")
@@ -85,6 +86,7 @@ class Maneuver_prediction(BPModule):
             # todo: modify labels in every epoch to smooth learning
             loss = self.loss_fn(sampled_z, labels)
             # todo: kiszámolni: F score, ACC, TP, FP, FN, az output logaritmukus
+            scores = calc_scores(torch.exp(sampled_z),labels)
             epoch_loss += loss.item()
             if "kld_train" in self.losses_keys:
                 kld_loss = self.kld_loss(mu, logvar)
@@ -92,44 +94,63 @@ class Maneuver_prediction(BPModule):
                 loss += kld_loss
             loss.backward()
             optim_config.step()
+            optim_config.zero_grad()
+            for key, value in scores.items():
+                epoch_scores[key] += value
             traj_p = traj_p.to("cpu")
             grid = grid.to("cpu")
             labels = labels.to("cpu")
-        # todo: kiszámolni: F score, ACC,
-
+        # print(epoch_scores)
+        # ACC = []
+        # TODO: függvény a f-beta-scorenak
+        FSCORE = []
+        for i in range(3):
+            FSCORE.append(epoch_scores['tp'][i] / (epoch_scores['tp'][i] + 0.5*(epoch_scores['fp'][i] + epoch_scores['fn'][i])))
+        # print(FSCORE)
         N = len(self.trainer.dataloaders["train"][0])
         self.trainer.losses["train"].append(epoch_loss / N)
         self.trainer.losses["kld_train"].append(epoch_kld_loss / N)
+        self.trainer.writer.add_scalars('train_FScores', {'left':FSCORE[0], 'keep':FSCORE[1], 'right':FSCORE[2]}, step)
 
     def validation_step(self, step):
         self.eval()
 
         epoch_loss = 0
         epoch_kld_loss = 0
+        epoch_scores = {'tp': 0, 'fn': 0, 'fp': 0, 'tn': 0}
         for traj_p, grid, labels in zip(*self.trainer.dataloaders["valid"]):
             traj_p = traj_p.to("cuda")
             grid = grid.to("cuda")
             labels = labels.to("cuda")
             mu, logvar, sampled_z = self(traj_p, grid)
             loss = self.loss_fn(sampled_z, labels)
+            scores = calc_scores(torch.exp(sampled_z),labels)
             epoch_loss += loss.item()
             if "kld_valid" in self.losses_keys:
                 kld_loss = self.kld_loss(mu, logvar)
                 epoch_kld_loss += kld_loss.item()
                 loss += kld_loss
+            for key, value in scores.items():
+                epoch_scores[key] += value
             traj_p = traj_p.to("cpu")
             grid = grid.to("cpu")
             labels = labels.to("cpu")
+        FSCORE = []
+        for i in range(3):
+            FSCORE.append(
+                epoch_scores['tp'][i] / (epoch_scores['tp'][i] + 0.5 * (epoch_scores['fp'][i] + epoch_scores['fn'][i])))
         N = len(self.trainer.dataloaders["valid"][0])
         self.trainer.losses["valid"].append(epoch_loss / N)
         self.trainer.losses["kld_valid"].append(epoch_kld_loss / N)
+        self.trainer.writer.add_scalars('valid_FScores', {'left':FSCORE[0], 'keep':FSCORE[1], 'right':FSCORE[2]}, step)
 
     def configure_optimizers(self):
         return optim.Adam(list(self.enc_grid.parameters()) +
                           list(self.enc_traj.parameters()) +
                           list(self.mlp.parameters()) +
                           list(self.mlp_mu.parameters()) +
-                          list(self.mlp_logvar.parameters()),
+                          list(self.mlp_logvar.parameters()) +
+                          list(self.grid_encoder.parameters()),
                           lr=0.001)
 
 
@@ -192,11 +213,11 @@ if __name__ == "__main__":
     # m = ResidualMLP(L)
     grid_enc = GridEncoder()
     # grid_enc.to("cuda")
-    # dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2, batch_size=80)
-    dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50)
+    dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2, batch_size=80)
+    # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50)
     grid_enc.load_state_dict(torch.load('aae_gauss_grid_encoder_param'))
     model = Maneuver_prediction(32, grid_enc, ["kld_train", "kld_valid"])
-    trainer = BPTrainer(epochs=1000, name="proba_CE_recurrent_maneuver_detection")
+    trainer = BPTrainer(epochs=1000, name="FOCAL_FSCORE_GRIDENC_recurrent_maneuver_detection")
     trainer.fit(model=model, datamodule=dm)
     # print(m)
     # print(m(t).shape)
