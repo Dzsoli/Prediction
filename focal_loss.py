@@ -40,7 +40,9 @@ def calc_scores(pred, labels):
         preds.append(pred_i)
         lab_i = (torch.argmax(labels, dim=1) == i).type(torch.int8)
         labs.append(lab_i)
+        # i-dik osztálynak lett sorolva, és valóban i-dik osztályban van
         tp_i = (pred_i == lab_i).type(torch.int8)
+
 
 
 
