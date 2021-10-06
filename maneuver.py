@@ -19,7 +19,17 @@ import random
 
 
 class Maneuver_prediction(BPModule):
-    def __init__(self, internal_size, grid_encoder, keys, encoder_traj=None, encoder_grid=None):
+    def __init__(self, internal_size, grid_encoder, keys, encoder_traj=None, encoder_grid=None, mode=3):
+        '''
+
+        :param internal_size:
+        :param grid_encoder:
+        :param keys:
+        :param encoder_traj:
+        :param encoder_grid:
+        :param mode: int 0 - include trajectories without grid training
+
+        '''
         super(Maneuver_prediction, self).__init__()
         # self.enc_traj = RecurrentEncoder(2, 8, internal_size, num_layers=2) if encoder_traj is None else encoder_traj
         # self.enc_grid = RecurrentEncoder(64, 32, internal_size, num_layers=2)
@@ -31,8 +41,7 @@ class Maneuver_prediction(BPModule):
         self.mlp_logvar = ResidualMLP(np.round(np.linspace(internal_size//2,3,2)))
         self.loss_fn = FocalLossMulty([0.2,0.2,0.6],5)
         self.losses_keys = ["train", "valid"] + keys
-        # todo: losoftmaxot kell használni?
-        self.softmax = nn.LogSoftmax(dim=1)
+        self.logsoftmax = nn.LogSoftmax(dim=1)
 
     def sampler(self, mu, logvar):
         std = logvar.mul(0.5).exp_()
@@ -69,7 +78,7 @@ class Maneuver_prediction(BPModule):
         internal = self.mlp(grid_z_z + traj_z)
         mu = self.mlp_mu(internal)
         logvar = self.mlp_logvar(internal)
-        sampled_z = self.softmax(self.sampler(mu, logvar))
+        sampled_z = self.logsoftmax(self.sampler(mu, logvar))
         return mu, logvar, sampled_z
 
     def training_step(self, optim_config, step):
@@ -119,9 +128,12 @@ class Maneuver_prediction(BPModule):
         epoch_kld_loss = 0
         epoch_scores = {'tp': 0, 'fn': 0, 'fp': 0, 'tn': 0}
         for traj_p, grid, labels in zip(*self.trainer.dataloaders["valid"]):
-            traj_p = traj_p.to("cuda")
-            grid = grid.to("cuda")
-            labels = labels.to("cuda")
+            # traj_p = traj_p.to("cuda")
+            # grid = grid.to("cuda")
+            # labels = labels.to("cuda")
+            traj_p.to("cuda")
+            grid.to("cuda")
+            labels.to("cuda")
             mu, logvar, sampled_z = self(traj_p, grid)
             loss = self.loss_fn(sampled_z, labels)
             scores = calc_scores(torch.exp(sampled_z),labels)
@@ -132,9 +144,12 @@ class Maneuver_prediction(BPModule):
                 loss += kld_loss
             for key, value in scores.items():
                 epoch_scores[key] += value
-            traj_p = traj_p.to("cpu")
-            grid = grid.to("cpu")
-            labels = labels.to("cpu")
+            # traj_p = traj_p.to("cpu")
+            # grid = grid.to("cpu")
+            # labels = labels.to("cpu")
+            traj_p.to("cpu")
+            grid.to("cpu")
+            labels.to("cpu")
         FSCORE = []
         for i in range(3):
             FSCORE.append(
@@ -213,11 +228,13 @@ if __name__ == "__main__":
     # m = ResidualMLP(L)
     grid_enc = GridEncoder()
     # grid_enc.to("cuda")
-    dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2, batch_size=80)
-    # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50)
+    # dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2, batch_size=80)
+    dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50)
     grid_enc.load_state_dict(torch.load('aae_gauss_grid_encoder_param'))
     model = Maneuver_prediction(32, grid_enc, ["kld_train", "kld_valid"])
     trainer = BPTrainer(epochs=1000, name="FOCAL_FSCORE_GRIDENC_recurrent_maneuver_detection")
     trainer.fit(model=model, datamodule=dm)
     # print(m)
     # print(m(t).shape)
+
+# https://towardsdatascience.com/residual-blocks-building-blocks-of-resnet-fd90ca15d6ec
