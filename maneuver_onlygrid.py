@@ -5,6 +5,7 @@ from BPtools.core.bpmodule import *
 from BPtools.utils.models import EncoderBN, VarDecoderConv1d_3
 from BPtools.trainer.bptrainer import BPTrainer
 
+from maneuver import ResidualMLP
 from data_moduls import *
 from grid_3D import *
 from grid_2D import *
@@ -18,8 +19,8 @@ from BPtools.utils.trajectory_plot import trajs_to_img_2, traj_to_img, trajs_to_
 import random
 
 
-class Maneuver_prediction(BPModule):
-    def __init__(self, internal_size, grid_encoder, keys, encoder_traj=None, encoder_grid=None, mode=3):
+class Maneuver_prediction_onlygrid(BPModule):
+    def __init__(self, internal_size, grid_encoder, keys, encoder_grid=None, mode=3):
         '''
 
         :param internal_size:
@@ -30,13 +31,12 @@ class Maneuver_prediction(BPModule):
         :param mode: int 0 - include trajectories without grid training
 
         '''
-        super(Maneuver_prediction, self).__init__()
+        super(Maneuver_prediction_onlygrid, self).__init__()
         # self.enc_traj = RecurrentEncoder(2, 8, internal_size, num_layers=2) if encoder_traj is None else encoder_traj
         # self.enc_grid = RecurrentEncoder(64, 32, internal_size, num_layers=2)
-        self.enc_traj = RecurrentCombinedEncoder(2, 8, internal_size)
         self.enc_grid = RecurrentCombinedEncoder(64, 32, internal_size)
         self.grid_encoder = grid_encoder
-        self.mlp = ResidualMLP(np.round(np.linspace(internal_size,internal_size//2,5)))
+        self.mlp = ResidualMLP(np.round(np.linspace(internal_size,internal_size//2,3)))
         self.mlp_mu = ResidualMLP(np.round(np.linspace(internal_size//2,3,2)))
         self.mlp_logvar = ResidualMLP(np.round(np.linspace(internal_size//2,3,2)))
         self.loss_fn = FocalLossMulty([0.2,0.2,0.6],5)
@@ -55,10 +55,10 @@ class Maneuver_prediction(BPModule):
     def sparse_loss(self, hidden, cell):
         return torch.mean(torch.abs(hidden)) + torch.mean(torch.abs(cell))
 
-    def forward(self, traj_p, grid):
+    def forward(self, grid):
         # traj: batch, feature, seq
         # grid: batch, 1, 16, 128, seq
-        batch_size, feature, seq_length = traj_p.size()
+        batch_size, _, _, _, seq_length = grid.size()
         # print("grid device: ", grid.device)
         grid_z, _ = self.grid_encoder(grid.permute((0, 4, 1, 2, 3)).reshape((batch_size * seq_length, 1, 16, 128)))
         # batch * seq, 1, 4, 16
@@ -69,13 +69,13 @@ class Maneuver_prediction(BPModule):
 
         # csak az utolsó hidden state kell
         grid_z_z, _ = self.enc_grid(grid_z)
-        traj_z, _ = self.enc_traj(traj_p)
+        # traj_z, _ = self.enc_traj(traj_p)
         # nem kell a cell state
         # hiddenből csak utolsó réteg kell
         # összeg, és nem konkatenálás
         grid_z_z = grid_z_z[-1].squeeze(0)
-        traj_z = traj_z[-1].squeeze(0)
-        internal = self.mlp(grid_z_z + traj_z)
+        # traj_z = traj_z[-1].squeeze(0)
+        internal = self.mlp(grid_z_z)
         mu = self.mlp_mu(internal)
         logvar = self.mlp_logvar(internal)
         sampled_z = self.logsoftmax(self.sampler(mu, logvar))
@@ -87,18 +87,18 @@ class Maneuver_prediction(BPModule):
         epoch_loss = 0
         epoch_kld_loss = 0
         epoch_scores = {'tp': 0, 'fn': 0, 'fp': 0, 'tn': 0}
-        for traj_p, grid, labels in zip(*self.trainer.dataloaders["train"]):
-            traj_p = traj_p.to("cuda")
+        for _, grid, labels in zip(*self.trainer.dataloaders["train"]):
+            # traj_p = traj_p.to("cuda")
             grid = grid.to("cuda")
             labels = labels.to("cuda")
-            mu, logvar, sampled_z = self(traj_p, grid)
+            mu, logvar, sampled_z = self(grid)
             # todo: modify labels in every epoch to smooth learning
             loss = self.loss_fn(sampled_z, labels)
             # todo: kiszámolni: F score, ACC, TP, FP, FN, az output logaritmukus
             scores = calc_scores(torch.exp(sampled_z),labels)
             epoch_loss += loss.item()
             if "kld_train" in self.losses_keys:
-                kld_loss = 0.05 * self.kld_loss(mu, logvar)
+                kld_loss = 0.1 * self.kld_loss(mu, logvar)
                 epoch_kld_loss += kld_loss.item()
                 loss += kld_loss
             loss.backward()
@@ -106,7 +106,7 @@ class Maneuver_prediction(BPModule):
             optim_config.zero_grad()
             for key, value in scores.items():
                 epoch_scores[key] += value
-            traj_p = traj_p.to("cpu")
+            # traj_p = traj_p.to("cpu")
             grid = grid.to("cpu")
             labels = labels.to("cpu")
         # print(epoch_scores)
@@ -116,7 +116,6 @@ class Maneuver_prediction(BPModule):
         for i in range(3):
             FSCORE.append(epoch_scores['tp'][i] / (epoch_scores['tp'][i] + 0.5*(epoch_scores['fp'][i] + epoch_scores['fn'][i])))
         # print(FSCORE)
-        FSCORE.append()
         N = len(self.trainer.dataloaders["train"][0])
         self.trainer.losses["train"].append(epoch_loss / N)
         self.trainer.losses["kld_train"].append(epoch_kld_loss / N)
@@ -128,29 +127,29 @@ class Maneuver_prediction(BPModule):
         epoch_loss = 0
         epoch_kld_loss = 0
         epoch_scores = {'tp': 0, 'fn': 0, 'fp': 0, 'tn': 0}
-        for traj_p, grid, labels in zip(*self.trainer.dataloaders["valid"]):
-            traj_p = traj_p.to("cuda")
+        for _, grid, labels in zip(*self.trainer.dataloaders["valid"]):
+            # traj_p = traj_p.to("cuda")
             grid = grid.to("cuda")
             labels = labels.to("cuda")
             # traj_p.to("cuda")
             # grid.to("cuda")
             # labels.to("cuda")
-            mu, logvar, sampled_z = self(traj_p, grid)
+            mu, logvar, sampled_z = self(grid)
             loss = self.loss_fn(sampled_z, labels)
             scores = calc_scores(torch.exp(sampled_z),labels)
             epoch_loss += loss.item()
             if "kld_valid" in self.losses_keys:
-                kld_loss = 0.05 * self.kld_loss(mu, logvar)
+                kld_loss = 0.1 * self.kld_loss(mu, logvar)
                 epoch_kld_loss += kld_loss.item()
                 loss += kld_loss
             for key, value in scores.items():
                 epoch_scores[key] += value
             # traj_p = traj_p.to("cpu")
-            # grid = grid.to("cpu")
-            # labels = labels.to("cpu")
-            traj_p.to("cpu")
-            grid.to("cpu")
-            labels.to("cpu")
+            grid = grid.to("cpu")
+            labels = labels.to("cpu")
+            # traj_p.to("cpu")
+            # grid.to("cpu")
+            # labels.to("cpu")
         FSCORE = []
         for i in range(3):
             FSCORE.append(
@@ -162,51 +161,12 @@ class Maneuver_prediction(BPModule):
 
     def configure_optimizers(self):
         return optim.Adam(list(self.enc_grid.parameters()) +
-                          list(self.enc_traj.parameters()) +
+                          # list(self.enc_traj.parameters()) +
                           list(self.mlp.parameters()) +
                           list(self.mlp_mu.parameters()) +
                           list(self.mlp_logvar.parameters()) +
                           list(self.grid_encoder.parameters()),
                           lr=0.001)
-
-
-class ResidualMLP(nn.Module):
-    def __init__(self, init):
-        super(ResidualMLP, self).__init__()
-        self.blocks: nn.ModuleList = nn.ModuleList()
-        m = None
-        for n in init:
-            if m is None:
-                m = n
-                continue
-            else:
-                self.blocks.append(ResBlockFully(int(m),int(n)))
-                m = n
-
-    def forward(self, x):
-        for block in self.blocks:
-            x = block(x)
-        return x
-
-
-class ResBlockFully(nn.Module):
-    def __init__(self, in_features, out_features):
-        super(ResBlockFully, self).__init__()
-        self.lin1 = nn.Linear(in_features, in_features)
-        self.lin2 = nn.Linear(in_features, in_features)
-        self.lin3 = nn.Linear(in_features, out_features)
-        self.bn = nn.BatchNorm1d(out_features)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        residual = x
-        out = self.relu(self.lin1(x))
-        out = self.relu(self.lin2(out))
-
-        out += residual
-        # TODO: meg kell nézni hogy itt mi a baj, és lehet hogy a hidden-ből csak az utolsó kell
-        out = self.bn(self.lin3(out))
-        return out
 
 
 class RecurrentEncoder(nn.Module):
@@ -232,8 +192,8 @@ if __name__ == "__main__":
     dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2, batch_size=80)
     # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50)
     grid_enc.load_state_dict(torch.load('aae_gauss_grid_encoder_param'))
-    model = Maneuver_prediction(32, grid_enc, ["kld_train", "kld_valid"])
-    trainer = BPTrainer(epochs=1000, name="FOCAL_FSCORE_GRIDENC_lambda05_recurrent_maneuver_detection")
+    model = Maneuver_prediction_onlygrid(32, grid_enc, ["kld_train", "kld_valid"])
+    trainer = BPTrainer(epochs=1000, name="FOCAL_FSCORE_GRIDENC_ONLYGRID_recurrent_maneuver_detection")
     trainer.fit(model=model, datamodule=dm)
     # print(m)
     # print(m(t).shape)
