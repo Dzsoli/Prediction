@@ -3,6 +3,7 @@ import torch.nn as nn
 from BPtools.core.bpmodule import *
 from torchvision.utils import make_grid
 from BPtools.utils.trajectory_plot import boundary_for_grid
+import torch.nn.functional as F
 
 
 class Encoder_Grid3D_3(nn.Module):
@@ -378,3 +379,76 @@ class ADVAE3D(BPModule):
             self, epoch: int, batch_idx: int, optimizer: Union[optim.Optimizer, List], optimizer_idx: int):
         for opt in optimizer:  # [0]:
             opt.zero_grad()
+
+
+# class ResBlockConv(nn.Module):
+#     def __init__(self, dolgok):
+#         super(ResBlockConv, self).__init__()
+#         self.conv1 = nn.Conv3d
+#         self.conv2 = nn.Conv3d
+#         self.conv3 = nn.Conv3d
+#         self
+
+class Block(nn.Module):
+    expansion = 1
+
+    def __init__(self, in_channels, out_channels, i_downsample=None, stride=1):
+        super(Block, self).__init__()
+
+        self.conv1 = nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1, stride=stride, bias=False)
+        self.batch_norm1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1, stride=stride, bias=False)
+        self.batch_norm2 = nn.BatchNorm3d(out_channels)
+
+        self.i_downsample = i_downsample
+        self.stride = stride
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        identity = x.clone()
+
+        x = self.relu(self.batch_norm2(self.conv1(x)))
+        x = self.batch_norm2(self.conv2(x))
+
+        if self.i_downsample is not None:
+            identity = self.i_downsample(identity)
+        print(x.shape)
+        print(identity.shape)
+        x += identity
+        x = self.relu(x)
+        return x
+
+
+class ResBlock(nn.Module):
+    """
+    Iniialize a residual block with two convolutions followed by batchnorm layers
+    """
+
+    def __init__(self, in_size: int, hidden_size: int, out_size: int):
+        super().__init__()
+        self.conv1 = nn.Conv3d(in_size, hidden_size, 3, padding=1)
+        self.conv2 = nn.Conv3d(hidden_size, out_size, 3, padding=1)
+        self.batchnorm1 = nn.BatchNorm3d(hidden_size)
+        self.batchnorm2 = nn.BatchNorm3d(out_size)
+
+    def convblock(self, x):
+        x = F.relu(self.batchnorm1(self.conv1(x)))
+        x = F.relu(self.batchnorm2(self.conv2(x)))
+        print('x: ',x.shape)
+        return x
+
+    """
+    Combine output with the original input
+    """
+
+    def forward(self, x): return x + self.convblock(x)  # skip connection
+
+
+
+
+if __name__ == "__main__":
+    block = ResBlock(1,3,5)
+    t = torch.ones((10,1,10,10,10))
+    t2 = torch.ones((10,3,10,10,10))
+    # print(t+t2)
+    print(block(t).shape)
