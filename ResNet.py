@@ -134,12 +134,12 @@ class ResNet(nn.Module):
 
 if __name__ == "__main__":
     resnet = ResNet(Bottleneck, [3,4,6,3], 3)
-    t = torch.ones(10,1,2,2)
-    # print(resnet(t).shape)
-    ii_downsample = nn.Sequential(
-        nn.Conv2d(1, 2, kernel_size=1, stride=1),
-        nn.BatchNorm2d(2)
-    )
-    print(t)
-    print(ii_downsample(t))
+    t = torch.ones(10,3,128,128)
+    print(resnet(t).shape)
+    # ii_downsample = nn.Sequential(
+    #     nn.Conv2d(1, 2, kernel_size=1, stride=1),
+    #     nn.BatchNorm2d(2)
+    # )
+    # print(t)
+    # print(ii_downsample(t))
 
