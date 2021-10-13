@@ -53,7 +53,8 @@ class MyTransResBlock(nn.Module):
 
 
 class MyResBlock(nn.Module):
-    def __init__(self, in_size: int, hidden_size: int, out_size: int, stride=1, downsample=None, mode=2, padd: int=1, type="encoder"):
+    def __init__(self, in_size: int, hidden_size: int, out_size: int, stride=1, downsample=None, mode=2, padd: int=1,
+                 type="encoder", out_padd=None):
         super(MyResBlock, self).__init__()
         if mode not in [1,2]:
             raise ValueError
@@ -67,7 +68,10 @@ class MyResBlock(nn.Module):
             self.conv = nn.ConvTranspose3d
         self.downsample = downsample
         self.stride = stride
-        self.conv1 = self.conv(in_size, hidden_size, 3, padding=padd, stride=stride)
+        if out_padd is None:
+            self.conv1 = self.conv(in_size, hidden_size, 3, padding=padd, stride=stride)
+        else:
+            self.conv1 = self.conv(in_size, hidden_size, 3, padding=padd, stride=stride, output_padding=out_padd)
         self.conv2 = self.conv(hidden_size, out_size, 3, padding=padd)
         self.batchnorm1 = nn.BatchNorm3d(hidden_size if mode == 1 else in_size)
         self.batchnorm2 = nn.BatchNorm3d(out_size if mode == 1 else hidden_size)
@@ -108,9 +112,9 @@ class MyResBlock(nn.Module):
         return y
 
 
-class MyResNetEncoder(nn.Module):
+class MyResNet(nn.Module):
     def __init__(self, Block, mode, type):
-        super(MyResNetEncoder, self).__init__()
+        super(MyResNet, self).__init__()
         self.block = Block
         self.mode = mode
         # todo: hozzáadni a layerekel a lap alapján
@@ -137,14 +141,14 @@ class MyResNetEncoder(nn.Module):
     def make_decoder(self):
         layers = []
         layers.append(self.make_block(1, 3, 4, 1))
-        layers.append(self.make_block(4, 6, 8, 2))
+        layers.append(self.make_block(4, 6, 8, 2, 1, 1))
         layers.append(self.make_block(8, 10, 12, 1))
-        layers.append(self.make_block(12, 10, 8, (2, 4, 2)))
+        layers.append(self.make_block(12, 10, 8, (2, 4, 2),1,(1,3,0)))
         layers.append(self.make_block(8, 8, 8))
-        layers.append(self.make_block(8, 4, 1, 2))
+        layers.append(self.make_block(8, 4, 1, 2, 1, 1))
         self.layers = nn.Sequential(*layers)
 
-    def make_block(self,in_channel, hidden_channel, out_channel, stride=1, padd=1):
+    def make_block(self,in_channel, hidden_channel, out_channel, stride=1, padd=1, out_padd=None):
         ds = None  # downsample
 
         if stride != 1 or in_channel != out_channel:
@@ -152,12 +156,16 @@ class MyResNetEncoder(nn.Module):
                 padd_ds = 0
             else:
                 padd_ds = padd
-
+            if out_padd is None:
+                conv_ds = self.conv(in_channel, out_channel, kernel_size=1, stride=stride)
+            else:
+                conv_ds = self.conv(in_channel, out_channel, kernel_size=1, stride=stride, output_padding=out_padd)
             ds = nn.Sequential(
                 nn.BatchNorm3d(in_channel),
-                self.conv(in_channel, out_channel, kernel_size=1, stride=stride)
+                conv_ds
             )
-        return self.block(in_channel, hidden_channel, out_channel, stride, downsample=ds, mode=self.mode, padd=padd, type=self.type_)
+        return self.block(in_channel, hidden_channel, out_channel, stride, downsample=ds, mode=self.mode, padd=padd,
+                          type=self.type_, out_padd=out_padd)
 
     def forward(self, x):
         return self.layers(x)
@@ -169,12 +177,12 @@ if __name__ == "__main__":
     downsample = nn.Conv3d(1,12,1,stride)
     m=MyResBlock(1,6,12,stride, downsample=downsample)
     # print(m(t).shape)
-    enc = MyResNetEncoder(MyResBlock,mode=2, type="encoder")
+    enc = MyResNet(MyResBlock, mode=2, type="encoder")
     print(enc(t).shape)
     print("####")
     z = torch.ones((10,1,2,8,4))
     # downsample = nn.Conv3d(1,12,1,stride)
     downsample = nn.ConvTranspose3d(1,4,1,2)
     # md = MyTransResBlock(1,3,4,2,downsample)
-    dec = MyResNetEncoder(MyResBlock, mode=2, type="decoder")
+    dec = MyResNet(MyResBlock, mode=2, type="decoder")
     print(dec(z).shape)
