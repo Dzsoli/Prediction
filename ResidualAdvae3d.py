@@ -22,3 +22,5 @@ model = ADVAE3D(encoder=encoder, decoder=decoder, discriminator= discriminator)
 dm = Grid3DSelected("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2, batch_size=80)
 # dm.prepare_data()
 # dm.setup()
+
+# todo: Focal loss with Sigmoid 
