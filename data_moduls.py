@@ -250,7 +250,7 @@ class RecurrentPredictionDataModul(BPDataModule):
 
 
 class RecurrentManeuverDataModul(BPDataModule):
-    def __init__(self, path, split_ratio, batch_size=1560, shuffle=True):
+    def __init__(self, path, split_ratio, batch_size=1560, shuffle=True, dsampling=False):
         super(RecurrentManeuverDataModul, self).__init__()
         self.path = path
         self.q = split_ratio
@@ -262,6 +262,7 @@ class RecurrentManeuverDataModul(BPDataModule):
         self.grids_1 = None
         self.labels = None
         self.batch_size = batch_size
+        self.dsampling = dsampling
 
     def prepare_data(self, ):
         self.traj_1 = np.load(self.path + "/trajectories1.npy", allow_pickle=True)
@@ -284,6 +285,8 @@ class RecurrentManeuverDataModul(BPDataModule):
         #     trajs_to_img_2(tr1=np.transpose(traj1, (1,0)),tr2=np.transpose(traj2, (1,0)),label="valami")
 
         self.grids_1 = np.expand_dims(self.grids_1, axis=1).transpose((0, 1, 3, 4, 2))
+        if self.dsampling:
+            self.grids_1 = self.grids_1[:,:,:,:,0::5]
         print(self.grids_1.shape)
         # print(self.traj_2.shape)
 
@@ -325,7 +328,7 @@ class RecurrentManeuverDataModul(BPDataModule):
 
 
 class Grid3DSelected(BPDataModule):
-    def __init__(self, path, split_ratio, batch_size=1560, shuffle=True):
+    def __init__(self, path, split_ratio, batch_size=1560, shuffle=True, generator=None, dsampling=False):
         super(Grid3DSelected, self).__init__()
         self.path = path
         self.q = split_ratio
@@ -336,7 +339,9 @@ class Grid3DSelected(BPDataModule):
         self.traj_1 = None
         self.grids_1 = None
         self.labels = None
+        self.generator = generator
         self.batch_size = batch_size
+        self.dsampling = dsampling
 
     def prepare_data(self, ):
         # self.traj_1 = np.load(self.path + "/trajectories1.npy", allow_pickle=True)
@@ -359,6 +364,10 @@ class Grid3DSelected(BPDataModule):
         #     trajs_to_img_2(tr1=np.transpose(traj1, (1,0)),tr2=np.transpose(traj2, (1,0)),label="valami")
 
         self.grids_1 = np.expand_dims(self.grids_1, axis=1).transpose((0, 1, 3, 4, 2))
+        if self.dsampling:
+            self.grids_1 = self.grids_1[:,:,:,:,0::5]
+        else:
+            self.grids_1 = self.grids_1[:,:,:,:,0::2]
         print(self.grids_1.shape)
         # print(self.traj_2.shape)
 
@@ -367,7 +376,7 @@ class Grid3DSelected(BPDataModule):
         # self.traj_1 = self.traj_1 - self.traj_1[:, :, 0][:, :, None]
 
         if self.shuffle:
-            randomperm = torch.randperm(self.grids_1.shape[0])
+            randomperm = torch.randperm(self.grids_1.shape[0], generator=torch.Generator().manual_seed(420))
             # self.traj_1 = self.traj_1[randomperm]
             self.grids_1 = self.grids_1[randomperm]
             # self.labels = self.labels[randomperm]

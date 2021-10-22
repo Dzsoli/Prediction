@@ -99,14 +99,14 @@ class MyResBlock(nn.Module):
         return x
 
     def forward(self, x):
-        print("x original: ", x.shape)
+        # print("x original: ", x.shape)
         if self.mode == 2:
             y = self.convblock_2(x)
         else:
             y = self.convblock_1(x)
         if self.downsample is not None:
             x = self.downsample(x)
-            print("x downsample: ", x.shape)
+            # print("x downsample: ", x.shape)
 
         y = x+y
         return y
@@ -146,6 +146,8 @@ class MyResNet(nn.Module):
         layers.append(self.make_block(12, 10, 8, (2, 4, 2),1,(1,3,0)))
         layers.append(self.make_block(8, 8, 8))
         layers.append(self.make_block(8, 4, 1, 2, 1, 1))
+        if self.type_ == "decoder":
+            layers.append(nn.Sigmoid())
         self.layers = nn.Sequential(*layers)
 
     def make_block(self,in_channel, hidden_channel, out_channel, stride=1, padd=1, out_padd=None):

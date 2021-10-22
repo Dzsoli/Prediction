@@ -29,6 +29,29 @@ class FocalLossMulty(nn.Module):
             return torch.sum(focal_loss)
 
 
+class FocalLossBinary(nn.Module):
+    def __init__(self, gamma, alpha=0, size_average=True):
+        super(FocalLossBinary, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.size_average = size_average
+        self.bce = nn.BCELoss()
+        self.eps = 1e-6
+
+    def forward(self, p, target):
+        # inp = torch.exp(loginput)
+        # p=torch.exp(log_p)
+        if self.size_average:
+            # internal = -torch.mean(target*log_p*(1-p)**self.gamma)
+            # log_ = -torch.mean(torch.log(1-p+1e-6) * (1-target)*p**self.gamma)
+            # internal += -torch.mean((1-target)*p**self.gamma*torch.log(1-p))
+            # return log_
+            # loss = self.bce()
+            return -2*self.alpha*torch.mean(target*torch.log(p+self.eps)*(1-p)**self.gamma)\
+                   - 2*(1-self.alpha)*torch.mean((1-target)*p**self.gamma*torch.log(1-p+self.eps))
+        else:
+            return target*torch.log(p)*(1-p)**self.gamma + (1-target)*p**self.gamma*torch.log(1-p)
+
 def calc_scores(pred, labels):
     # batch, classes
     batch, classes = pred.shape

@@ -238,13 +238,16 @@ class Decoder_Grid3D(nn.Module):
 
 
 class ADVAE3D(BPModule):
-    def __init__(self, encoder, decoder, discriminator):
+    def __init__(self, encoder, decoder, discriminator, loss=nn.BCELoss(), decay=0.3):
         super(ADVAE3D, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
         self.discriminator = discriminator
         self.bce = nn.BCELoss()
+        self.loss = loss
         self.losses_keys = ['disc train', 'generator train', 'disc valid', 'generator valid']
+        self.epsilon = decay
+        self.delta = 0.9
 
     def forward(self, x):
         z = self.encoder(x)
@@ -258,6 +261,7 @@ class ADVAE3D(BPModule):
         epoch_gen = 0
         epoch_disc = 0
         for batch in self.trainer.dataloaders["train"]:
+            batch = batch.to("cuda")
             z = self.encoder(batch)
             # itt baj lehet, nem  a self(batch) megy
 
@@ -295,7 +299,7 @@ class ADVAE3D(BPModule):
 
             ### Reconstruction
             pred, z = self(batch)
-            recon_loss_vae = self.bce(pred, batch)
+            recon_loss_vae = self.loss(pred, (batch + self.epsilon) / (1 + 2*self.epsilon))
             recon_loss_vae.backward()
             epoch_recon = epoch_recon + recon_loss_vae.item()
             # opt_vae
@@ -304,6 +308,7 @@ class ADVAE3D(BPModule):
             # !Annealing
             optim_configuration[1].step()
             self.optimizer_zero_grad(0, 0, optim_configuration, step)
+            batch = batch.to("cpu")
 
         N = len(self.trainer.dataloaders["train"])
         self.trainer.losses["train"].append(epoch_recon / N)
@@ -317,6 +322,7 @@ class ADVAE3D(BPModule):
         epoch_gen = 0
         epoch_disc = 0
         for batch in self.trainer.dataloaders["valid"]:
+            batch = batch.to("cuda")
             pred, z = self(batch)
             ### Disc
             z_real = torch.FloatTensor(z.size()).normal_().to(z.device)
@@ -333,9 +339,10 @@ class ADVAE3D(BPModule):
             epoch_gen = epoch_gen + gen_loss.item()
 
             ### Reconstruction
-            recon_loss_vae = self.bce(pred, batch)
+            recon_loss_vae = self.loss(pred, (batch + self.epsilon) / (1 + 2*self.epsilon))
             epoch_recon = epoch_recon + recon_loss_vae.item()
-
+            batch = batch.to("cpu")
+        self.epsilon = self.epsilon * self.delta
         # var = pred.exp_()
         # mean_of_var = torch.mean(var)
         # std_of_var = torch.std(var)
@@ -353,14 +360,14 @@ class ADVAE3D(BPModule):
             img_fake_grid = make_grid(boundary_for_grid(pred[50].permute(3,0,1,2)), normalize=True, nrow=1)
             img_real_grid = make_grid(boundary_for_grid(batch[50].permute(3,0,1,2)), normalize=True, nrow=1)
 
-            img_latent_dist_grid = make_grid(boundary_for_grid(z[:16]), normalize=True, nrow=2)
-            img_prior_dist_grid = make_grid(boundary_for_grid(z_real[:16]), normalize=True, nrow=2)
+            # img_latent_dist_grid = make_grid(boundary_for_grid(z[:16]), normalize=True, nrow=2)
+            # img_prior_dist_grid = make_grid(boundary_for_grid(z_real[:16]), normalize=True, nrow=2)
 
             self.trainer.writer.add_image("Occupancy Real Images", img_real_grid)
             self.trainer.writer.add_image("Occupancy Fake Images", img_fake_grid, step)
 
-            self.trainer.writer.add_image("Latent Distribution Images", img_latent_dist_grid, step)
-            self.trainer.writer.add_image("Prior Distribution Images", img_prior_dist_grid, step)
+            # self.trainer.writer.add_image("Latent Distribution Images", img_latent_dist_grid, step)
+            # self.trainer.writer.add_image("Prior Distribution Images", img_prior_dist_grid, step)
 
         # '''
         self.unfreeze()
