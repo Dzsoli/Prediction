@@ -287,6 +287,8 @@ class RecurrentManeuverDataModul(BPDataModule):
         self.grids_1 = np.expand_dims(self.grids_1, axis=1).transpose((0, 1, 3, 4, 2))
         if self.dsampling:
             self.grids_1 = self.grids_1[:,:,:,:,0::5]
+        else:
+            self.grids_1 = self.grids_1[:, :, :, :, 0::2]
         print(self.grids_1.shape)
         # print(self.traj_2.shape)
 
