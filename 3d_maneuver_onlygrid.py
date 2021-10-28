@@ -54,7 +54,9 @@ class Prediction_maneuver_grid3d(BPModule):
         epoch_kld_loss = 0
         epoch_scores = {'tp': 0, 'fn': 0, 'fp': 0, 'tn': 0}
         for _, grid, labels in zip(*self.trainer.dataloaders["train"]):
+            # print(grid.device)
             grid = grid.to("cuda")
+            # print("2", grid.device)
             labels = labels.to("cuda")
             # mu, logvar, sampled_z = self(grid)
             result = self(grid)
@@ -74,8 +76,8 @@ class Prediction_maneuver_grid3d(BPModule):
             optim_configuration.zero_grad()
             for key, value in scores.items():
                 epoch_scores[key] += value
-            grid = grid.to("cpu")
-            labels = labels.to("cpu")
+            # grid = grid.to("cpu")
+            # labels = labels.to("cpu")
 
         FSCORE = []
         for i in range(3):
@@ -115,8 +117,8 @@ class Prediction_maneuver_grid3d(BPModule):
 
             for key, value in scores.items():
                 epoch_scores[key] += value
-            grid = grid.to("cpu")
-            labels = labels.to("cpu")
+            # grid = grid.to("cpu")
+            # labels = labels.to("cpu")
 
         FSCORE = []
         for i in range(3):
@@ -166,16 +168,16 @@ if __name__ == "__main__":
     dec = Decoder_Grid3D_3()
     disc = Discriminator2D()
     aae3d = ADVAE3D(encoder=enc, decoder=dec, discriminator=disc)
-    aae3d.load_state_dict(torch.load("model_state_dict_3D_pred_proba_img_type3_50_1_13"))
+    # aae3d.load_state_dict(torch.load("model_state_dict_3D_pred_proba_img_type3_50_1_13"))
     grid_enc = aae3d.encoder
     # del(aae3d)
     grid_enc = enc
     merge = Grid3D_z_classifier()
     model = Prediction_maneuver_grid3d(grid_enc, merge)
-    dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2,
-                                    batch_size=80, dsampling=True)
-
-    # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50)
+    dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2,
+                                    batch_size=500, dsampling=True)
+    # dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2,
+    #                                 batch_size=80, dsampling=True)
     # dm.prepare_data()
     # for traj1, traj2 in zip(dm.traj_1, dm.traj_2):
     #     print(traj1.shape)
@@ -188,5 +190,5 @@ if __name__ == "__main__":
     #         print(traj.shape)
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
-    trainer = BPTrainer(epochs=1000, name="3d_onlygrid_based_maneuver_proba")
+    trainer = BPTrainer(epochs=1000, name="3d_onlygrid_based_maneuver_no3dpretrain")
     trainer.fit(model=model, datamodule=dm)
