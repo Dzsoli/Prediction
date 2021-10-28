@@ -133,7 +133,8 @@ class MyResNet(nn.Module):
         layers.append(self.make_block(1, 3, 4))
         layers.append(self.make_block(4, 6, 8, 2))
         layers.append(self.make_block(8, 10, 12, 1))
-        layers.append(self.make_block(12, 10, 8, (2, 4, 2)))
+        # layers.append(self.make_block(12, 10, 8, (2, 4, 2)))
+        layers.append(self.make_block(12, 10, 8, (2, 4, 4))) #TODO ez akkor jó, ha 60 db időpontot nézünk
         layers.append(self.make_block(8, 8, 8))
         layers.append(self.make_block(8, 4, 1, 2))
         self.layers = nn.Sequential(*layers)
@@ -174,7 +175,7 @@ class MyResNet(nn.Module):
 
 
 if __name__ == "__main__":
-    t = torch.ones((10,1,16,128,30))
+    t = torch.ones((10,1,16,128,60))
     stride = (2,4,2)
     downsample = nn.Conv3d(1,12,1,stride)
     m=MyResBlock(1,6,12,stride, downsample=downsample)

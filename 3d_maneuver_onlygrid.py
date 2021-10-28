@@ -4,6 +4,7 @@ from BPtools.core.bpmodule import *
 from BPtools.utils.models import EncoderBN, VarDecoderConv1d_3
 from BPtools.trainer.bptrainer import BPTrainer
 
+from MyResNet import *
 from data_moduls import *
 from focal_loss import *
 from grid_3D import *
@@ -164,20 +165,26 @@ class Grid3D_z_classifier(nn.Module):
 if __name__ == "__main__":
     # traj_enc = EncoderBN(2, 60, 10)
     # traj_dec = VarDecoderConv1d_3(2, 60, 10)
-    enc = Encoder_Grid3D_3()
-    dec = Decoder_Grid3D_3()
-    disc = Discriminator2D()
-    aae3d = ADVAE3D(encoder=enc, decoder=dec, discriminator=disc)
+
+    # enc = Encoder_Grid3D_3()
+    enc = MyResNet(MyResBlock, mode=2, type="encoder")
+
+    # dec = Decoder_Grid3D_3()
+    # disc = Discriminator2D()
+    # aae3d = ADVAE3D(encoder=enc, decoder=dec, discriminator=disc)
     # aae3d.load_state_dict(torch.load("model_state_dict_3D_pred_proba_img_type3_50_1_13"))
-    grid_enc = aae3d.encoder
+    # grid_enc = aae3d.encoder
+
     # del(aae3d)
     grid_enc = enc
     merge = Grid3D_z_classifier()
     model = Prediction_maneuver_grid3d(grid_enc, merge)
-    dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2,
-                                    batch_size=500, dsampling=True)
-    # dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2,
-    #                                 batch_size=80, dsampling=True)
+
+    dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2,
+                                    batch_size=80, dsampling=1)
+
+    # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50)
+
     # dm.prepare_data()
     # for traj1, traj2 in zip(dm.traj_1, dm.traj_2):
     #     print(traj1.shape)
@@ -190,5 +197,5 @@ if __name__ == "__main__":
     #         print(traj.shape)
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
-    trainer = BPTrainer(epochs=1000, name="3d_onlygrid_based_maneuver_no3dpretrain")
+    trainer = BPTrainer(epochs=1000, name="3d_MyResnet_onlygrid60_based_maneuver_proba")
     trainer.fit(model=model, datamodule=dm)

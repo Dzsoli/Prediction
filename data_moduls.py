@@ -250,7 +250,7 @@ class RecurrentPredictionDataModul(BPDataModule):
 
 
 class RecurrentManeuverDataModul(BPDataModule):
-    def __init__(self, path, split_ratio, batch_size=1560, shuffle=True, dsampling=False):
+    def __init__(self, path, split_ratio, batch_size=1560, shuffle=True, dsampling=None):
         super(RecurrentManeuverDataModul, self).__init__()
         self.path = path
         self.q = split_ratio
@@ -285,8 +285,10 @@ class RecurrentManeuverDataModul(BPDataModule):
         #     trajs_to_img_2(tr1=np.transpose(traj1, (1,0)),tr2=np.transpose(traj2, (1,0)),label="valami")
 
         self.grids_1 = np.expand_dims(self.grids_1, axis=1).transpose((0, 1, 3, 4, 2))
-        if self.dsampling:
-            self.grids_1 = self.grids_1[:,:,:,:,0::5]
+        if self.dsampling is not None:
+            self.grids_1 = self.grids_1[:,:,:,:,0::self.dsampling]
+        # else:
+        #     self.grids_1 = self.grids_1[:, :, :, :, 0::2]
         print(self.grids_1.shape)
         # print(self.traj_2.shape)
 
