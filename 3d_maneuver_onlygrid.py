@@ -16,13 +16,13 @@ from BPtools.utils.trajectory_plot import trajs_to_img_2, traj_to_img, trajs_to_
 
 
 class Prediction_maneuver_grid3d(BPModule):
-    def __init__(self, grid_encoder, merge_z):
+    def __init__(self, grid_encoder, merge_z, loss=FocalLossMulty([0.2,0.2,0.6],5)):
         super(Prediction_maneuver_grid3d, self).__init__()
         # self.traj_enc = traj_encoder
         # self.traj_dec = traj_decoder
         self.grid_enc = grid_encoder
         self.merge_z = merge_z
-        self.mse = FocalLossMulty([0.2,0.2,0.6],5)
+        self.mse = loss
         self.losses_keys = ["train", "valid"]
 
     def mse_diff(self, traj2, pred):
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     # del(aae3d)
     grid_enc = enc
     merge = Grid3D_z_classifier()
-    model = Prediction_maneuver_grid3d(grid_enc, merge)
+    model = Prediction_maneuver_grid3d(grid_enc, merge, loss=FocalLossMulty([0.042,0.178,0.78],5))
     dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2,
                                     batch_size=80, dsampling=1)
 
@@ -191,5 +191,5 @@ if __name__ == "__main__":
     #         print(traj.shape)
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
-    trainer = BPTrainer(epochs=1000, name="3d_MyResnet_onlygrid60_based_maneuver_proba")
+    trainer = BPTrainer(epochs=1000, name="3d_MyResnet_onlygrid60_based_maneuver_prediction10")
     trainer.fit(model=model, datamodule=dm)
