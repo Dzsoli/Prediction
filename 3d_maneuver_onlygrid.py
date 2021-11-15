@@ -5,6 +5,7 @@ from BPtools.utils.models import EncoderBN, VarDecoderConv1d_3
 from BPtools.trainer.bptrainer import BPTrainer
 
 from MyResNet import *
+from QuadNet import *
 from data_moduls import *
 from focal_loss import *
 from grid_3D import *
@@ -167,7 +168,8 @@ if __name__ == "__main__":
     # traj_dec = VarDecoderConv1d_3(2, 60, 10)
 
     # enc = Encoder_Grid3D_3()
-    enc = MyResNet(MyResBlock, mode=2, type="encoder")
+    # enc = MyResNet(MyResBlock, mode=2, type="encoder")
+    enc = QuadResNet()
 
     # dec = Decoder_Grid3D_3()
     # disc = Discriminator2D()
@@ -198,5 +200,5 @@ if __name__ == "__main__":
     #         print(traj.shape)
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
-    trainer = BPTrainer(epochs=1000, name="3d_MyResnet_onlygrid60_based_maneuver_prediction10")
+    trainer = BPTrainer(epochs=1000, name="3d_QuadResnet_onlygrid60_based_maneuver_biasoff")
     trainer.fit(model=model, datamodule=dm)
