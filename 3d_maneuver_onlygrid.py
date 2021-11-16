@@ -5,6 +5,7 @@ from BPtools.utils.models import EncoderBN, VarDecoderConv1d_3
 from BPtools.trainer.bptrainer import BPTrainer
 
 from MyResNet import *
+from QuadNet import *
 from data_moduls import *
 from focal_loss import *
 from grid_3D import *
@@ -55,7 +56,9 @@ class Prediction_maneuver_grid3d(BPModule):
         epoch_kld_loss = 0
         epoch_scores = {'tp': 0, 'fn': 0, 'fp': 0, 'tn': 0}
         for _, grid, labels in zip(*self.trainer.dataloaders["train"]):
+            # print(grid.device)
             grid = grid.to("cuda")
+            # print("2", grid.device)
             labels = labels.to("cuda")
             # mu, logvar, sampled_z = self(grid)
             result = self(grid)
@@ -75,8 +78,8 @@ class Prediction_maneuver_grid3d(BPModule):
             optim_configuration.zero_grad()
             for key, value in scores.items():
                 epoch_scores[key] += value
-            grid = grid.to("cpu")
-            labels = labels.to("cpu")
+            # grid = grid.to("cpu")
+            # labels = labels.to("cpu")
 
         FSCORE = []
         for i in range(3):
@@ -116,8 +119,8 @@ class Prediction_maneuver_grid3d(BPModule):
 
             for key, value in scores.items():
                 epoch_scores[key] += value
-            grid = grid.to("cpu")
-            labels = labels.to("cpu")
+            # grid = grid.to("cpu")
+            # labels = labels.to("cpu")
 
         FSCORE = []
         for i in range(3):
@@ -163,22 +166,28 @@ class Grid3D_z_classifier(nn.Module):
 if __name__ == "__main__":
     # traj_enc = EncoderBN(2, 60, 10)
     # traj_dec = VarDecoderConv1d_3(2, 60, 10)
+
     # enc = Encoder_Grid3D_3()
-    enc = MyResNet(MyResBlock, mode=2, type="encoder")
+    # enc = MyResNet(MyResBlock, mode=2, type="encoder")
+    enc = QuadResNet()
 
     # dec = Decoder_Grid3D_3()
     # disc = Discriminator2D()
     # aae3d = ADVAE3D(encoder=enc, decoder=dec, discriminator=disc)
     # aae3d.load_state_dict(torch.load("model_state_dict_3D_pred_proba_img_type3_50_1_13"))
     # grid_enc = aae3d.encoder
+
     # del(aae3d)
     grid_enc = enc
     merge = Grid3D_z_classifier()
+    # model = Prediction_maneuver_grid3d(grid_enc, merge)
+
     model = Prediction_maneuver_grid3d(grid_enc, merge, loss=FocalLossMulty([0.178,0.042,0.78],5))
     dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2,
                                     batch_size=80, dsampling=1)
 
-    # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50)
+    # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50, dsampling=1)
+
     # dm.prepare_data()
     # for traj1, traj2 in zip(dm.traj_1, dm.traj_2):
     #     print(traj1.shape)
@@ -191,5 +200,9 @@ if __name__ == "__main__":
     #         print(traj.shape)
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
+<<<<<<< HEAD
     trainer = BPTrainer(epochs=1000, name="3d_MyResnet_onlygrid60_based_maneuver_prediction20")
+=======
+    trainer = BPTrainer(epochs=1000, name="3d_QuadResnet_onlygrid60_based_maneuver_biasoff")
+>>>>>>> 5c07ab51a864b7f59d7bb2c3cbd65b616ccd8e8b
     trainer.fit(model=model, datamodule=dm)
