@@ -174,7 +174,7 @@ if __name__ == "__main__":
     # del(aae3d)
     grid_enc = enc
     merge = Grid3D_z_classifier()
-    model = Prediction_maneuver_grid3d(grid_enc, merge, loss=FocalLossMulty([0.042,0.178,0.78],5))
+    model = Prediction_maneuver_grid3d(grid_enc, merge, loss=FocalLossMulty([0.178,0.042,0.78],5))
     dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2,
                                     batch_size=80, dsampling=1)
 
@@ -191,5 +191,5 @@ if __name__ == "__main__":
     #         print(traj.shape)
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
-    trainer = BPTrainer(epochs=1000, name="3d_MyResnet_onlygrid60_based_maneuver_prediction10")
+    trainer = BPTrainer(epochs=1000, name="3d_MyResnet_onlygrid60_based_maneuver_prediction20")
     trainer.fit(model=model, datamodule=dm)

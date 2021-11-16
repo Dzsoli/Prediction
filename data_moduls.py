@@ -265,9 +265,9 @@ class RecurrentManeuverDataModul(BPDataModule):
         self.dsampling = dsampling
 
     def prepare_data(self, ):
-        self.traj_1 = np.load(self.path + "/trajectories1_pred10.npy", allow_pickle=True)
-        self.grids_1 = np.load(self.path + "/grids1_pred10.npy", allow_pickle=True)
-        self.labels = np.load(self.path + "/labels_pred10.npy", allow_pickle=True)
+        self.traj_1 = np.load(self.path + "/trajectories1_pred20.npy", allow_pickle=True)
+        self.grids_1 = np.load(self.path + "/grids1_pred20.npy", allow_pickle=True)
+        self.labels = np.load(self.path + "/labels_pred20.npy", allow_pickle=True)
         print(self.traj_1.shape)
         self.set_has_prepared_data(True)
 
