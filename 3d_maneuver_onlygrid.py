@@ -200,9 +200,6 @@ if __name__ == "__main__":
     #         print(traj.shape)
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
-<<<<<<< HEAD
-    trainer = BPTrainer(epochs=1000, name="3d_MyResnet_onlygrid60_based_maneuver_prediction20")
-=======
+
     trainer = BPTrainer(epochs=1000, name="3d_QuadResnet_onlygrid60_based_maneuver_biasoff")
->>>>>>> 5c07ab51a864b7f59d7bb2c3cbd65b616ccd8e8b
     trainer.fit(model=model, datamodule=dm)
