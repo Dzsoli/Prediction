@@ -16,6 +16,7 @@ class FocalLossMulty(nn.Module):
 
         alpha_label = self.alpha * label
         # print(alpha_label)
+
         inp_label = inp * label
         # print(inp_label)
         loginput_label = loginput * label

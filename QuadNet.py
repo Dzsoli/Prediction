@@ -35,7 +35,7 @@ class QuadResNet(nn.Module):
     def __init__(self):
         super(QuadResNet, self).__init__()
         self.layers = None
-        self.make_layers()
+        self.make_layers_vol2()
 
     def make_block(self, in_channel, out_channel, stride=1, padd=1):
         ds = None
@@ -53,11 +53,21 @@ class QuadResNet(nn.Module):
         layers.append(self.make_block(1,1,1))
         layers.append(self.make_block(1,4,1))
         layers.append(self.make_block(4,8,2))
-        layers.append(self.make_block(8,8,1))
+        # layers.append(self.make_block(8,8,1))
         layers.append(self.make_block(8, 8, 1))
         layers.append(self.make_block(8,4,(2,4,2)))
-        layers.append(self.make_block(4,4,1))
+        # layers.append(self.make_block(4,4,1))
         layers.append(self.make_block(4,4,(2,4,2)))
+        layers.append(self.make_block(4,1,1))
+        self.layers = nn.Sequential(*layers)
+
+    def make_layers_vol2(self):
+        layers = []
+        layers.append(self.make_block(1,4,1))
+        layers.append(self.make_block(4,8,1))
+        layers.append(self.make_block(8,12,(2,4,2)))
+        layers.append(self.make_block(12,8,(2,4,2)))
+        layers.append(self.make_block(8,4,2))
         layers.append(self.make_block(4,1,1))
         self.layers = nn.Sequential(*layers)
 

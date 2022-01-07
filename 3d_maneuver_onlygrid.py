@@ -12,6 +12,8 @@ from grid_3D import *
 from model import Discriminator2D
 from data_moduls import DummyPredictionDataModul
 # from torchvision.utils import make_grid
+# from torchvision.models import resnet18
+from resnet3D import *
 from torchvision.transforms import ToTensor
 from BPtools.utils.trajectory_plot import trajs_to_img_2, traj_to_img, trajs_to_img
 
@@ -170,7 +172,8 @@ if __name__ == "__main__":
     # enc = Encoder_Grid3D_3()
     # enc = MyResNet(MyResBlock, mode=2, type="encoder")
     enc = QuadResNet()
-
+    res18 = resnet18_3D(num_classes=64, pretrained=False)
+    print(res18)
     # dec = Decoder_Grid3D_3()
     # disc = Discriminator2D()
     # aae3d = ADVAE3D(encoder=enc, decoder=dec, discriminator=disc)
@@ -178,13 +181,13 @@ if __name__ == "__main__":
     # grid_enc = aae3d.encoder
 
     # del(aae3d)
-    grid_enc = enc
+    grid_enc = res18
     merge = Grid3D_z_classifier()
     # model = Prediction_maneuver_grid3d(grid_enc, merge)
 
     model = Prediction_maneuver_grid3d(grid_enc, merge, loss=FocalLossMulty([0.178,0.042,0.78],5))
     dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2,
-                                    batch_size=80, dsampling=1)
+                                    batch_size=64, dsampling=1)
 
     # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50, dsampling=1)
 
@@ -201,5 +204,5 @@ if __name__ == "__main__":
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
 
-    trainer = BPTrainer(epochs=1000, name="3d_QuadResnet_onlygrid60_based_maneuver_biasoff")
+    trainer = BPTrainer(epochs=1000, name="3d_Resnet18_onlygrid60_based_maneuver")
     trainer.fit(model=model, datamodule=dm)

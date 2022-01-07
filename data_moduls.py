@@ -265,9 +265,9 @@ class RecurrentManeuverDataModul(BPDataModule):
         self.dsampling = dsampling
 
     def prepare_data(self, ):
-        self.traj_1 = np.load(self.path + "/trajectories1_pred20.npy", allow_pickle=True)
-        self.grids_1 = np.load(self.path + "/grids1_pred20.npy", allow_pickle=True)
-        self.labels = np.load(self.path + "/labels_pred20.npy", allow_pickle=True)
+        self.traj_1 = np.load(self.path + "/trajectories1.npy", allow_pickle=True)
+        self.grids_1 = np.load(self.path + "/grids1.npy", allow_pickle=True)
+        self.labels = np.load(self.path + "/labels.npy", allow_pickle=True)
 
         # self.traj_1 = np.load(self.path + "/trajectories1.npy", allow_pickle=True)
         # self.grids_1 = np.load(self.path + "/grids1.npy", allow_pickle=True)
@@ -291,6 +291,9 @@ class RecurrentManeuverDataModul(BPDataModule):
         self.grids_1 = np.expand_dims(self.grids_1, axis=1).transpose((0, 1, 3, 4, 2))
         if self.dsampling is not None:
             self.grids_1 = self.grids_1[:,:,:,:,0::self.dsampling]
+
+        # Resnet18-hoz 3 csatornás
+        self.grids_1 = self.grids_1.repeat(3,1)
         # else:
         #     self.grids_1 = self.grids_1[:, :, :, :, 0::2]
         print(self.grids_1.shape)
