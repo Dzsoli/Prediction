@@ -186,8 +186,9 @@ if __name__ == "__main__":
     # model = Prediction_maneuver_grid3d(grid_enc, merge)
 
     model = Prediction_maneuver_grid3d(grid_enc, merge, loss=FocalLossMulty([0.178,0.042,0.78],5))
-    dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2,
-                                    batch_size=64, dsampling=1)
+    # dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2,
+    #                                 batch_size=64, dsampling=1)
+    dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=64, dsampling=1)
 
     # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50, dsampling=1)
 
