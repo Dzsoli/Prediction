@@ -250,7 +250,7 @@ class RecurrentPredictionDataModul(BPDataModule):
 
 
 class RecurrentManeuverDataModul(BPDataModule):
-    def __init__(self, path, split_ratio, batch_size=1560, shuffle=True, dsampling=None):
+    def __init__(self, path, split_ratio, batch_size=1560, shuffle=True, dsampling=None, resnet18=False):
         super(RecurrentManeuverDataModul, self).__init__()
         self.path = path
         self.q = split_ratio
@@ -263,15 +263,16 @@ class RecurrentManeuverDataModul(BPDataModule):
         self.labels = None
         self.batch_size = batch_size
         self.dsampling = dsampling
+        self.res18 = resnet18
 
     def prepare_data(self, ):
-        self.traj_1 = np.load(self.path + "/trajectories1.npy", allow_pickle=True)
-        self.grids_1 = np.load(self.path + "/grids1.npy", allow_pickle=True)
-        self.labels = np.load(self.path + "/labels.npy", allow_pickle=True)
-
         # self.traj_1 = np.load(self.path + "/trajectories1.npy", allow_pickle=True)
         # self.grids_1 = np.load(self.path + "/grids1.npy", allow_pickle=True)
         # self.labels = np.load(self.path + "/labels.npy", allow_pickle=True)
+
+        self.traj_1 = np.load(self.path + "/trajectories1_pred15.npy", allow_pickle=True)
+        self.grids_1 = np.load(self.path + "/grids1_pred15.npy", allow_pickle=True)
+        self.labels = np.load(self.path + "/labels.npy", allow_pickle=True)
         print(self.traj_1.shape)
         self.set_has_prepared_data(True)
 
@@ -293,7 +294,8 @@ class RecurrentManeuverDataModul(BPDataModule):
             self.grids_1 = self.grids_1[:,:,:,:,0::self.dsampling]
 
         # Resnet18-hoz 3 csatornás
-        self.grids_1 = self.grids_1.repeat(3,1)
+        if self.res18:
+            self.grids_1 = self.grids_1.repeat(3,1)
         # else:
         #     self.grids_1 = self.grids_1[:, :, :, :, 0::2]
         print(self.grids_1.shape)

@@ -88,11 +88,17 @@ class Prediction_maneuver_grid3d(BPModule):
             FSCORE.append(
                 epoch_scores['tp'][i] / (epoch_scores['tp'][i] + 0.5 * (epoch_scores['fp'][i] + epoch_scores['fn'][i])))
         # print(FSCORE)
+        ACC_keep = (epoch_scores['tp'][1] + epoch_scores['tn'][1]) / (epoch_scores['tp'][1] + epoch_scores['tn'][1] +
+                                                                      epoch_scores['fp'][1] + epoch_scores['fn'][1])
+        ACC_change = (epoch_scores['tp'][0] + epoch_scores['tn'][0] + epoch_scores['tp'][2] + epoch_scores['tn'][2]) / (
+                epoch_scores['tp'][0] + epoch_scores['tn'][0] + epoch_scores['fp'][0] + epoch_scores['fn'][0] +
+                epoch_scores['tp'][2] + epoch_scores['tn'][2] + epoch_scores['fp'][2] + epoch_scores['fn'][2])
         N = len(self.trainer.dataloaders["train"][0])
         self.trainer.losses["train"].append(epoch_loss / N)
         # self.trainer.losses["kld_train"].append(epoch_kld_loss / N)
         self.trainer.writer.add_scalars('train_FScores', {'left': FSCORE[0], 'keep': FSCORE[1], 'right': FSCORE[2]},
                                         step)
+        self.trainer.writer.add_scalars('train_ACC', {'keep': ACC_keep, 'change': ACC_change}, step)
 
 
     def validation_step(self, step):
@@ -129,11 +135,17 @@ class Prediction_maneuver_grid3d(BPModule):
             FSCORE.append(
                 epoch_scores['tp'][i] / (epoch_scores['tp'][i] + 0.5 * (epoch_scores['fp'][i] + epoch_scores['fn'][i])))
         # print(FSCORE)
+        ACC_keep = (epoch_scores['tp'][1] + epoch_scores['tn'][1]) / (epoch_scores['tp'][1] + epoch_scores['tn'][1] +
+                                                                      epoch_scores['fp'][1] + epoch_scores['fn'][1])
+        ACC_change = (epoch_scores['tp'][0] + epoch_scores['tn'][0] + epoch_scores['tp'][2] + epoch_scores['tn'][2]) / (
+                epoch_scores['tp'][0] + epoch_scores['tn'][0] + epoch_scores['fp'][0] + epoch_scores['fn'][0] +
+                epoch_scores['tp'][2] + epoch_scores['tn'][2] + epoch_scores['fp'][2] + epoch_scores['fn'][2])
         N = len(self.trainer.dataloaders["valid"][0])
         self.trainer.losses["valid"].append(epoch_loss / N)
         # self.trainer.losses["kld_train"].append(epoch_kld_loss / N)
         self.trainer.writer.add_scalars('valid_FScores', {'left': FSCORE[0], 'keep': FSCORE[1], 'right': FSCORE[2]},
                                         step)
+        self.trainer.writer.add_scalars('valid_ACC', {'keep': ACC_keep, 'change': ACC_change}, step)
 
     def configure_optimizers(self):
         return optim.Adam(
@@ -142,6 +154,12 @@ class Prediction_maneuver_grid3d(BPModule):
                           list(self.merge_z.parameters()) +
                           list(self.grid_enc.parameters())
                           , lr=0.001)
+        # return optim.SGD(
+        #     # list(self.traj_enc.parameters()) +
+        #     #               list(self.traj_dec.parameters()) +
+        #     list(self.merge_z.parameters()) +
+        #     list(self.grid_enc.parameters())
+        #     , lr=0.001, weight_decay=0.0005)
 
 
 class Grid3D_z_classifier(nn.Module):
@@ -172,8 +190,10 @@ if __name__ == "__main__":
     # enc = Encoder_Grid3D_3()
     # enc = MyResNet(MyResBlock, mode=2, type="encoder")
     enc = QuadResNet()
+    print("Quad res net", sum(p.numel() for p in enc.parameters() if p.requires_grad))
     res18 = resnet18_3D(num_classes=64, pretrained=False)
-    print(res18)
+    print("Res net 18", sum(p.numel() for p in res18.parameters() if p.requires_grad))
+    # print(res18)
     # dec = Decoder_Grid3D_3()
     # disc = Discriminator2D()
     # aae3d = ADVAE3D(encoder=enc, decoder=dec, discriminator=disc)
@@ -188,7 +208,7 @@ if __name__ == "__main__":
     model = Prediction_maneuver_grid3d(grid_enc, merge, loss=FocalLossMulty([0.178,0.042,0.78],5))
     # dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2,
     #                                 batch_size=64, dsampling=1)
-    dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=64, dsampling=1)
+    dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=32, dsampling=1, resnet18=True)
 
     # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50, dsampling=1)
 
@@ -205,5 +225,5 @@ if __name__ == "__main__":
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
 
-    trainer = BPTrainer(epochs=1000, name="3d_Resnet18_onlygrid60_based_maneuver")
+    trainer = BPTrainer(epochs=1000, name="3d_Resnet18_gamma5_ACC_pred15")
     trainer.fit(model=model, datamodule=dm)
