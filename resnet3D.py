@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from TaylorNetClone import conv3x3_3D, conv1x1_3D
 
 
 def resnet18_3D(pretrained=False, progress=True, **kwargs):
@@ -13,15 +14,15 @@ def resnet18_3D(pretrained=False, progress=True, **kwargs):
     return ResNet_3D(BasicBlock_3D, [2,2,2,2], **kwargs)
 
 
-def conv3x3_3D(in_planes, out_planes, stride=1, groups=1, dilation=1):
-    """3x3 convolution with padding"""
-    return nn.Conv3d(in_planes, out_planes, kernel_size=3, stride=stride,
-                     padding=dilation, groups=groups, bias=False, dilation=dilation)
-
-
-def conv1x1_3D(in_planes, out_planes, stride=1):
-    """1x1 convolution"""
-    return nn.Conv3d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+# def conv3x3_3D(in_planes, out_planes, stride=1, groups=1, dilation=1):
+#     """3x3 convolution with padding"""
+#     return nn.Conv3d(in_planes, out_planes, kernel_size=3, stride=stride,
+#                      padding=dilation, groups=groups, bias=False, dilation=dilation)
+#
+#
+# def conv1x1_3D(in_planes, out_planes, stride=1):
+#     """1x1 convolution"""
+#     return nn.Conv3d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
 
 class BasicBlock_3D(nn.Module):
@@ -37,10 +38,12 @@ class BasicBlock_3D(nn.Module):
         if dilation > 1:
             raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
         # Both self.conv1 and self.downsample layers downsample the input when stride != 1
-        self.conv1 = conv3x3_3D(inplanes, planes, stride)
+        self.conv1 = conv3x3_3D(inplanes, planes, (stride, stride, 1), kernel_size=(3, 3, 1), padding=(1,1,0))
+        # conv3x3_3D(inplanes, planes, stride)
         self.bn1 = norm_layer(planes)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = conv3x3_3D(planes, planes)
+        self.conv2 = conv3x3_3D(planes, planes, (1, 1, stride), kernel_size=(1,1,3), padding=(0,0,1))
+            # conv3x3_3D(planes, planes)
         self.bn2 = norm_layer(planes)
         self.downsample = downsample
         self.stride = stride
@@ -152,8 +155,10 @@ class ResNet_3D(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
+        # 512,1,4,2
 
         x = self.avgpool(x)
+        # 512,1,1,1
         x = torch.flatten(x, 1)
         x = self.fc(x)
 

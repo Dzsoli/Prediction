@@ -16,10 +16,11 @@ from data_moduls import DummyPredictionDataModul
 from resnet3D import *
 from torchvision.transforms import ToTensor
 from BPtools.utils.trajectory_plot import trajs_to_img_2, traj_to_img, trajs_to_img
+from TaylorNetClone import TaylorNet_3D, BasicQuadBlock_3D
 
 
 class Prediction_maneuver_grid3d(BPModule):
-    def __init__(self, grid_encoder, merge_z, loss=FocalLossMulty([0.2,0.2,0.6],5)):
+    def __init__(self, grid_encoder, merge_z=None, loss=FocalLossMulty([0.2,0.2,0.6],5)):
         super(Prediction_maneuver_grid3d, self).__init__()
         # self.traj_enc = traj_encoder
         # self.traj_dec = traj_decoder
@@ -27,6 +28,7 @@ class Prediction_maneuver_grid3d(BPModule):
         self.merge_z = merge_z
         self.mse = loss
         self.losses_keys = ["train", "valid"]
+        self.logsoftmax = nn.LogSoftmax(dim=1)
 
     def mse_diff(self, traj2, pred):
         d_traj2 = traj2[:,:,1:] - traj2[:,:,0:-1]
@@ -46,7 +48,10 @@ class Prediction_maneuver_grid3d(BPModule):
         # traj_mu, traj_logvar = self.traj_enc(traj1)
         # traj_z = self.sampler(traj_mu, traj_logvar)
         grid_z = self.grid_enc(grid1)
-        result = self.merge_z(grid_z)
+        if self.merge_z is None:
+            result = self.logsoftmax(grid_z.view(-1,3))
+        else:
+            result = self.merge_z(grid_z)
         return result
 
     def training_step(self, optim_configuration, step):
@@ -148,12 +153,13 @@ class Prediction_maneuver_grid3d(BPModule):
         self.trainer.writer.add_scalars('valid_ACC', {'keep': ACC_keep, 'change': ACC_change}, step)
 
     def configure_optimizers(self):
+        merge_parameters = list(self.merge_z.parameters()) if self.merge_z is not None else []
         return optim.Adam(
             # list(self.traj_enc.parameters()) +
             #               list(self.traj_dec.parameters()) +
-                          list(self.merge_z.parameters()) +
+                          merge_parameters +
                           list(self.grid_enc.parameters())
-                          , lr=0.001)
+                          , lr=0.001, amsgrad=True, weight_decay=0)
         # return optim.SGD(
         #     # list(self.traj_enc.parameters()) +
         #     #               list(self.traj_dec.parameters()) +
@@ -188,11 +194,16 @@ if __name__ == "__main__":
     # traj_dec = VarDecoderConv1d_3(2, 60, 10)
 
     # enc = Encoder_Grid3D_3()
+
     # enc = MyResNet(MyResBlock, mode=2, type="encoder")
-    enc = QuadResNet()
-    print("Quad res net", sum(p.numel() for p in enc.parameters() if p.requires_grad))
-    res18 = resnet18_3D(num_classes=64, pretrained=False)
+    # enc = QuadResNet()
+    # print("Quad res net", sum(p.numel() for p in enc.parameters() if p.requires_grad))
+
+    # bassza meg itt végig 64 numclass vooolt: nem mert a Grid3D_z_classifier vár 64 dimenziót
+    res18 = resnet18_3D(num_classes=3, pretrained=False)
     print("Res net 18", sum(p.numel() for p in res18.parameters() if p.requires_grad))
+
+    taylor18_3D = TaylorNet_3D(BasicQuadBlock_3D, [2, 2, 2, 2], num_classes=3, order=2, partial_mix=7)
     # print(res18)
     # dec = Decoder_Grid3D_3()
     # disc = Discriminator2D()
@@ -205,10 +216,13 @@ if __name__ == "__main__":
     merge = Grid3D_z_classifier()
     # model = Prediction_maneuver_grid3d(grid_enc, merge)
 
-    model = Prediction_maneuver_grid3d(grid_enc, merge, loss=FocalLossMulty([0.178,0.042,0.78],5))
+    model = Prediction_maneuver_grid3d(grid_enc, merge_z=None, loss=FocalLossMulty([0.178,0.042,0.78],5))
     # dm = RecurrentManeuverDataModul("C:/Users/oliver/PycharmProjects/full_data/otthonrol", split_ratio=0.2,
     #                                 batch_size=64, dsampling=1)
-    dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=32, dsampling=1, resnet18=True)
+    # model.load_state_dict(torch.load(
+    #     "log_3d_Taylor18_NM_split_AMSGrad_3D_gamma5_ACC/model_state_dict_3d_Taylor18_NM_split_AMSGrad_3D_gamma5_ACC"
+    # ))
+    dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=16, dsampling=1, resnet18=True)
 
     # dm = RecurrentManeuverDataModul("D:/dataset", split_ratio=0.2, batch_size=50, dsampling=1)
 
@@ -225,5 +239,5 @@ if __name__ == "__main__":
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
 
-    trainer = BPTrainer(epochs=1000, name="3d_Resnet18_gamma5_ACC_pred15")
+    trainer = BPTrainer(epochs=1000, name="3d_Resnet18_NM_split_AMSGrad_lr1_w0")
     trainer.fit(model=model, datamodule=dm)
