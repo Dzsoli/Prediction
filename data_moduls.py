@@ -266,6 +266,7 @@ class RecurrentManeuverDataModul(BPDataModule):
         self.res18 = resnet18
 
     def prepare_data(self, ):
+
         self.traj_1 = np.load(self.path + "/trajectories1.npy", allow_pickle=True)
         self.grids_1 = np.load(self.path + "/grids1.npy", allow_pickle=True)
         self.labels = np.load(self.path + "/labels.npy", allow_pickle=True)
@@ -273,6 +274,7 @@ class RecurrentManeuverDataModul(BPDataModule):
         # self.traj_1 = np.load(self.path + "/trajectories1_pred15.npy", allow_pickle=True)
         # self.grids_1 = np.load(self.path + "/grids1_pred15.npy", allow_pickle=True)
         # self.labels = np.load(self.path + "/labels.npy", allow_pickle=True)
+
         print(self.traj_1.shape)
         self.set_has_prepared_data(True)
 

@@ -93,9 +93,12 @@ class Prediction_maneuver_grid3d(BPModule):
             FSCORE.append(
                 epoch_scores['tp'][i] / (epoch_scores['tp'][i] + 0.5 * (epoch_scores['fp'][i] + epoch_scores['fn'][i])))
         # print(FSCORE)
-        ACC_keep = (epoch_scores['tp'][1] + epoch_scores['tn'][1]) / (epoch_scores['tp'][1] + epoch_scores['tn'][1] +
+        # SZ=epoch_scores['tp'][1].float() + epoch_scores['tn'][1]
+        # N=epoch_scores['tp'][1] + epoch_scores['tn'][1] + epoch_scores['fp'][1] + epoch_scores['fn'][1]
+        # Q=SZ/N
+        ACC_keep = (epoch_scores['tp'][1] + epoch_scores['tn'][1]).float() / (epoch_scores['tp'][1] + epoch_scores['tn'][1] +
                                                                       epoch_scores['fp'][1] + epoch_scores['fn'][1])
-        ACC_change = (epoch_scores['tp'][0] + epoch_scores['tn'][0] + epoch_scores['tp'][2] + epoch_scores['tn'][2]) / (
+        ACC_change = 1.0*(epoch_scores['tp'][0] + epoch_scores['tn'][0] + epoch_scores['tp'][2] + epoch_scores['tn'][2]) / (
                 epoch_scores['tp'][0] + epoch_scores['tn'][0] + epoch_scores['fp'][0] + epoch_scores['fn'][0] +
                 epoch_scores['tp'][2] + epoch_scores['tn'][2] + epoch_scores['fp'][2] + epoch_scores['fn'][2])
         N = len(self.trainer.dataloaders["train"][0])
@@ -140,9 +143,9 @@ class Prediction_maneuver_grid3d(BPModule):
             FSCORE.append(
                 epoch_scores['tp'][i] / (epoch_scores['tp'][i] + 0.5 * (epoch_scores['fp'][i] + epoch_scores['fn'][i])))
         # print(FSCORE)
-        ACC_keep = (epoch_scores['tp'][1] + epoch_scores['tn'][1]) / (epoch_scores['tp'][1] + epoch_scores['tn'][1] +
+        ACC_keep = (epoch_scores['tp'][1] + epoch_scores['tn'][1]).float() / (epoch_scores['tp'][1] + epoch_scores['tn'][1] +
                                                                       epoch_scores['fp'][1] + epoch_scores['fn'][1])
-        ACC_change = (epoch_scores['tp'][0] + epoch_scores['tn'][0] + epoch_scores['tp'][2] + epoch_scores['tn'][2]) / (
+        ACC_change = (epoch_scores['tp'][0] + epoch_scores['tn'][0] + epoch_scores['tp'][2] + epoch_scores['tn'][2]).float() / (
                 epoch_scores['tp'][0] + epoch_scores['tn'][0] + epoch_scores['fp'][0] + epoch_scores['fn'][0] +
                 epoch_scores['tp'][2] + epoch_scores['tn'][2] + epoch_scores['fp'][2] + epoch_scores['fn'][2])
         N = len(self.trainer.dataloaders["valid"][0])
@@ -212,7 +215,7 @@ if __name__ == "__main__":
     # grid_enc = aae3d.encoder
 
     # del(aae3d)
-    grid_enc = res18
+    grid_enc = enc
     merge = Grid3D_z_classifier()
     # model = Prediction_maneuver_grid3d(grid_enc, merge)
 
@@ -239,5 +242,7 @@ if __name__ == "__main__":
     #         trajs_to_img(np.transpose(np.array(traj.to("cpu")), (1,0)), np.transpose(np.array(traj2.to("cpu")), (1,0)), "valami")
 
 
+
     trainer = BPTrainer(epochs=1000, name="3d_Resnet18_NM_split_AMSGrad_lr1_w0")
+
     trainer.fit(model=model, datamodule=dm)
