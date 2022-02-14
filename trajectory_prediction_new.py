@@ -18,6 +18,8 @@ from torchvision.transforms import ToTensor
 from BPtools.utils.trajectory_plot import trajs_to_img_2, traj_to_img, trajs_to_img
 from TaylorNetClone import TaylorNet_3D, BasicQuadBlock_3D
 
+import matplotlib.pyplot as plt
+
 
 def conv_block1d(in_ch, out_ch, kernel=3, stride=1, padd=None, pool=False):
     padd = kernel // 2 if padd is None else padd
@@ -52,7 +54,7 @@ class TrajectoryEncoder(nn.Module):
         # lesz egy súly, ami egyre normált.
 
         # Sigmoiddal is kipróbálom
-        self.softmax = nn.Sigmoid()
+        self.softmax = nn.Softmax(dim=2)
 
     def conv_block(self, in_ch, out_ch, kernel=3, stride=1, padd=None, pool=False):
         return conv_block1d(in_ch, out_ch, kernel, stride, padd, pool)
@@ -168,6 +170,8 @@ class TrajPred_New(BPModule):
                     img_batch[i] = img_real_gen[0:3]
                     i = i + 1
                 self.trainer.writer.add_images("Train Real & Out", img_batch, step)
+                plt.close('all')
+
 
     def validation_step(self, step):
         self.eval()
@@ -177,8 +181,9 @@ class TrajPred_New(BPModule):
             traj1 = traj1.to("cuda")
             traj2 = traj2.to("cuda")
             label = label.to("cuda")
-            pred = self(traj1, label)
-            loss = self.mse(traj2, pred)
+            with torch.no_grad():
+                pred = self(traj1, label)
+                loss = self.mse(traj2, pred)
             epoch_loss += loss.item()
 
             # loss += 10 * self.mse_diff(traj2, pred)
@@ -209,6 +214,7 @@ class TrajPred_New(BPModule):
                     img_batch[i] = img_real_gen[0:3]
                     i = i + 1
                 self.trainer.writer.add_images("Valid Real & Out", img_batch, step)
+                plt.close('all')
 
     def configure_optimizers(self):
         return optim.Adam(list(self.traj_enc.parameters()) +
@@ -232,6 +238,8 @@ if __name__ == "__main__":
     # pred = TrajPred_New(model, decoder)
     # print(pred(t))
     model = TrajPred_New(TrajectoryEncoder(16),TrajectoryDecoder(16))
-    dm = TrajectoryPredData("D:/dataset", split_ratio=0.2, batch_size=512)
-    trainer = BPTrainer(epochs=5000, name="trajectory_prediction_new_deriv_att-double-label_Sigmoid_vol1")
+    path_tanszek = "C:/Users/oliver/PycharmProjects/full_data/otthonrol"
+    path_otthoni = "D:/dataset"
+    dm = TrajectoryPredData(path_tanszek, split_ratio=0.2, batch_size=512)
+    trainer = BPTrainer(epochs=3000, name="trajectory_prediction_new_deriv_att-double-label_Softmax_vol1")
     trainer.fit(model=model, datamodule=dm)
