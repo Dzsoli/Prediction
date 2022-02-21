@@ -18,6 +18,8 @@ from torchvision.transforms import ToTensor
 from BPtools.utils.trajectory_plot import trajs_to_img_2, traj_to_img, trajs_to_img
 from TaylorNetClone import TaylorNet_3D, BasicQuadBlock_3D
 
+import matplotlib.pyplot as plt
+
 
 def conv_block1d(in_ch, out_ch, kernel=3, stride=1, padd=None, pool=False):
     padd = kernel // 2 if padd is None else padd
@@ -29,11 +31,12 @@ def conv_block1d(in_ch, out_ch, kernel=3, stride=1, padd=None, pool=False):
 
 
 class TrajectoryEncoder(nn.Module):
-    def __init__(self, context_dim, input_channels=2, seq_length=60):
+    def __init__(self, context_dim, input_channels=2, seq_length=60, att=True):
         super(TrajectoryEncoder, self).__init__()
         self.context_dim = context_dim
         self.input_channels = input_channels
         self.seq_length = seq_length
+        self.is_att = True
         self.layer1 = self.conv_block(input_channels, 4)
         self.layer2 = self.conv_block(4, 8, stride=2)
         self.res1 = nn.Sequential(self.conv_block(8, 8), self.conv_block(8, 8))
@@ -52,7 +55,7 @@ class TrajectoryEncoder(nn.Module):
         # lesz egy súly, ami egyre normált.
 
         # Sigmoiddal is kipróbálom
-        self.softmax = nn.Sigmoid()
+        self.softmax = nn.Sigmoid(dim=2)
 
     def conv_block(self, in_ch, out_ch, kernel=3, stride=1, padd=None, pool=False):
         return conv_block1d(in_ch, out_ch, kernel, stride, padd, pool)
@@ -64,11 +67,15 @@ class TrajectoryEncoder(nn.Module):
         out = self.layer3(out)
         out = self.res2(out) + out
 
-        att = self.softmax(self.att(out))
-        att = att * label.unsqueeze(2)
-        att = torch.sum(att, dim=1).unsqueeze(1)
-        out = self.context(out)
-        out = att * out
+        if self.is_att:
+            att = self.softmax(self.att(out))
+            att = att * label.unsqueeze(2)
+            att = torch.sum(att, dim=1).unsqueeze(1)
+            out = self.context(out)
+            out = att * out
+        else:
+            pass
+            # TODO: ide kell valami ötlet
         return out
 
 
@@ -168,6 +175,8 @@ class TrajPred_New(BPModule):
                     img_batch[i] = img_real_gen[0:3]
                     i = i + 1
                 self.trainer.writer.add_images("Train Real & Out", img_batch, step)
+                plt.close('all')
+
 
     def validation_step(self, step):
         self.eval()
@@ -177,8 +186,9 @@ class TrajPred_New(BPModule):
             traj1 = traj1.to("cuda")
             traj2 = traj2.to("cuda")
             label = label.to("cuda")
-            pred = self(traj1, label)
-            loss = self.mse(traj2, pred)
+            with torch.no_grad():
+                pred = self(traj1, label)
+                loss = self.mse(traj2, pred)
             epoch_loss += loss.item()
 
             # loss += 10 * self.mse_diff(traj2, pred)
@@ -209,6 +219,7 @@ class TrajPred_New(BPModule):
                     img_batch[i] = img_real_gen[0:3]
                     i = i + 1
                 self.trainer.writer.add_images("Valid Real & Out", img_batch, step)
+                plt.close('all')
 
     def configure_optimizers(self):
         return optim.Adam(list(self.traj_enc.parameters()) +
@@ -237,6 +248,9 @@ if __name__ == "__main__":
     # print(decoder(z).shape)
 
     model = TrajPred_New(TrajectoryEncoder(16),TrajectoryDecoder(16, transpose=False))
-    dm = TrajectoryPredData("D:/dataset", split_ratio=0.2, batch_size=512, pred=15)
+    path_tanszek = "C:/Users/oliver/PycharmProjects/full_data/otthonrol"
+    path_otthoni = "D:/dataset"
+    dm = TrajectoryPredData(path_otthoni, split_ratio=0.2, batch_size=512, pred=15)
     trainer = BPTrainer(epochs=5000, name="trajectory_prediction_new15_deriv_att-double-labelhatMAX_Sigmoid_vol1")
     trainer.fit(model=model, datamodule=dm)
+    # trainer = BPTrainer(epochs=3000, name="trajectory_prediction_new_deriv_att-double-label_NoAtt_vol1")
