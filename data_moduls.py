@@ -341,7 +341,7 @@ class RecurrentManeuverDataModul(BPDataModule):
 
 
 class TrajectoryPredData(BPDataModule):
-    def __init__(self, path, split_ratio, batch_size=256, shuffle=True):
+    def __init__(self, path, split_ratio, batch_size=256, shuffle=True, pred=60):
         super(TrajectoryPredData, self).__init__()
         self.path = path
         self.q = split_ratio
@@ -351,6 +351,7 @@ class TrajectoryPredData(BPDataModule):
         self.test = None
         self.traj_1 = None
         self.traj_2 = None
+        self.pred = pred
         # self.grids_1 = None
         self.labels = None
         self.batch_size = batch_size
@@ -359,7 +360,9 @@ class TrajectoryPredData(BPDataModule):
         self.traj_1 = np.load(self.path + "/trajectories1.npy", allow_pickle=True)
         self.traj_2 = np.load(self.path + "/trajectories2.npy", allow_pickle=True)
         # self.grids_1 = np.load(self.path + "/grids1.npy", allow_pickle=True)
-        self.labels = np.load(self.path + "/labels.npy", allow_pickle=True)
+        # self.labels = np.load(self.path + "/labels.npy", allow_pickle=True)
+        self.labels = np.load(self.path + "/labelhat.npy", allow_pickle=True)
+
 
         # self.traj_1 = np.load(self.path + "/trajectories1_pred15.npy", allow_pickle=True)
         # self.grids_1 = np.load(self.path + "/grids1_pred15.npy", allow_pickle=True)
@@ -374,12 +377,18 @@ class TrajectoryPredData(BPDataModule):
         q = self.q
         self.traj_1 = np.transpose(self.traj_1, (0, 2, 1))
         self.traj_2 = np.transpose(self.traj_2, (0, 2, 1))
+        self.traj_2 = self.traj_2[:,:,0:self.pred]
 
         self.traj_1[:, 1, :] = 0.05 * self.traj_1[:, 1, :]
         self.traj_2[:, 1, :] = 0.05 * self.traj_2[:, 1, :]
 
         self.traj_2 = self.traj_2 - self.traj_1[:, :, -1][:, :, None]
         self.traj_1 = self.traj_1 - self.traj_1[:, :, 0][:, :, None]
+
+        # label_hat maximuma
+        arr = np.zeros_like(self.labels)
+        arr[self.labels.argmax(axis=1)[:,None] == range(self.labels.shape[1])] = 1
+        self.labels = arr
 
         if self.shuffle:
             randomperm = torch.randperm(self.traj_1.shape[0])

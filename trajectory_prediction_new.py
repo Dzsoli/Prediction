@@ -73,17 +73,17 @@ class TrajectoryEncoder(nn.Module):
 
 
 class TrajectoryDecoder(nn.Module):
-    def __init__(self, context_dim, output_channels=2, seq_length=60):
+    def __init__(self, context_dim, output_channels=2, seq_length=60, transpose=True):
         super(TrajectoryDecoder, self).__init__()
         self.context_dim = context_dim
         self.output_channels = output_channels
         self.seq_length = seq_length
         self.context = nn.Conv1d(context_dim, 16, 1)
         self.layer1 = conv_block1d(16, 16)
-        self.layer2 = self.tr_conv_block(16, 16, kernel=4, stride=2, padd=1)
+        self.layer2 = self.tr_conv_block(16, 16, kernel=4, stride=2, padd=1) if transpose else conv_block1d(16, 16)
         self.layer3 = conv_block1d(16, 8)
         self.res1 = nn.Sequential(conv_block1d(8, 8), conv_block1d(8, 8))
-        self.layer4 = self.tr_conv_block(8, 4, kernel=4, stride=2, padd=1)
+        self.layer4 = self.tr_conv_block(8, 4, kernel=4, stride=2, padd=1) if transpose else conv_block1d(8, 4)
         self.res2 = nn.Sequential(conv_block1d(4, 4), conv_block1d(4, 4))
         self.layer5 = nn.Conv1d(4, output_channels, kernel_size=3, padding=1)
         # self.average = nn.AvgPool1d(kernel_size=5, stride=1, padding=2)
@@ -220,10 +220,10 @@ if __name__ == "__main__":
     # t = torch.ones(64,2,60)
     # print(model(t).shape)
     # ct = nn.ConvTranspose1d(16,2,4,stride=2,padding=1,dilation=1,output_padding=0)
-    # # print(ct(model(t)).shape)
-    # # z = torch.ones_like(model(t))
-    # # ct.weight = nn.Parameter(torch.ones_like(ct.weight)/16.0)
-    # # print(ct(z)[0])
+    # print(ct(model(t)).shape)
+    # z = torch.ones_like(model(t))
+    # ct.weight = nn.Parameter(torch.ones_like(ct.weight)/16.0)
+    # print(ct(z)[0])
     # decoder = TrajectoryDecoder(10)
     # o = decoder(model(t))
     # print(o.shape)
@@ -231,7 +231,12 @@ if __name__ == "__main__":
     # print(o[0,1,:])
     # pred = TrajPred_New(model, decoder)
     # print(pred(t))
-    model = TrajPred_New(TrajectoryEncoder(16),TrajectoryDecoder(16))
-    dm = TrajectoryPredData("D:/dataset", split_ratio=0.2, batch_size=512)
-    trainer = BPTrainer(epochs=5000, name="trajectory_prediction_new_deriv_att-double-label_Sigmoid_vol1")
+
+    # decoder = TrajectoryDecoder(10, transpose=False)
+    # z = torch.randn((1,10,15))
+    # print(decoder(z).shape)
+
+    model = TrajPred_New(TrajectoryEncoder(16),TrajectoryDecoder(16, transpose=False))
+    dm = TrajectoryPredData("D:/dataset", split_ratio=0.2, batch_size=512, pred=15)
+    trainer = BPTrainer(epochs=5000, name="trajectory_prediction_new15_deriv_att-double-labelhatMAX_Sigmoid_vol1")
     trainer.fit(model=model, datamodule=dm)

@@ -215,7 +215,7 @@ if __name__ == "__main__":
     # grid_enc = aae3d.encoder
 
     # del(aae3d)
-    grid_enc = enc
+    grid_enc = taylor18_3D
     merge = Grid3D_z_classifier()
     # model = Prediction_maneuver_grid3d(grid_enc, merge)
 
@@ -243,6 +243,6 @@ if __name__ == "__main__":
 
 
 
-    trainer = BPTrainer(epochs=1000, name="3d_Resnet18_NM_split_AMSGrad_lr1_w0")
+    trainer = BPTrainer(epochs=1000, name="3d_Resnet18_NM_split_AMSGrad_lr1_w0_prob")
 
     trainer.fit(model=model, datamodule=dm)
