@@ -36,7 +36,7 @@ class TrajectoryEncoder(nn.Module):
         self.context_dim = context_dim
         self.input_channels = input_channels
         self.seq_length = seq_length
-        self.is_att = True
+        self.is_att = att
         self.layer1 = self.conv_block(input_channels, 4)
         self.layer2 = self.conv_block(4, 8, stride=2)
         self.res1 = nn.Sequential(self.conv_block(8, 8), self.conv_block(8, 8))
@@ -55,7 +55,7 @@ class TrajectoryEncoder(nn.Module):
         # lesz egy súly, ami egyre normált.
 
         # Sigmoiddal is kipróbálom
-        self.softmax = nn.Sigmoid(dim=2)
+        self.softmax = nn.Sigmoid()
 
     def conv_block(self, in_ch, out_ch, kernel=3, stride=1, padd=None, pool=False):
         return conv_block1d(in_ch, out_ch, kernel, stride, padd, pool)
@@ -75,6 +75,7 @@ class TrajectoryEncoder(nn.Module):
             out = att * out
         else:
             pass
+            out = self.context(out)
             # TODO: ide kell valami ötlet
         return out
 
@@ -251,6 +252,6 @@ if __name__ == "__main__":
     path_tanszek = "C:/Users/oliver/PycharmProjects/full_data/otthonrol"
     path_otthoni = "D:/dataset"
     dm = TrajectoryPredData(path_otthoni, split_ratio=0.2, batch_size=512, pred=15)
-    trainer = BPTrainer(epochs=5000, name="trajectory_prediction_new15_deriv_att-double-labelhatMAX_Sigmoid_vol1")
+    trainer = BPTrainer(epochs=5000, name="trajectory_prediction_new15_deriv_Noatt-double-labelhatMAX_Sigmoid_vol1")
     trainer.fit(model=model, datamodule=dm)
     # trainer = BPTrainer(epochs=3000, name="trajectory_prediction_new_deriv_att-double-label_NoAtt_vol1")
