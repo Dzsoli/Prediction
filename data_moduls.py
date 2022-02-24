@@ -341,7 +341,7 @@ class RecurrentManeuverDataModul(BPDataModule):
 
 
 class TrajectoryPredData(BPDataModule):
-    def __init__(self, path, split_ratio, batch_size=256, shuffle=True, pred=60):
+    def __init__(self, path, split_ratio, batch_size=256, shuffle=True, pred=60, is_grid=False):
         super(TrajectoryPredData, self).__init__()
         self.path = path
         self.q = split_ratio
@@ -352,14 +352,16 @@ class TrajectoryPredData(BPDataModule):
         self.traj_1 = None
         self.traj_2 = None
         self.pred = pred
-        # self.grids_1 = None
+        self.is_grid = is_grid
+        if is_grid:
+            self.grids_1 = None
         self.labels = None
         self.batch_size = batch_size
 
     def prepare_data(self, ):
         self.traj_1 = np.load(self.path + "/trajectories1.npy", allow_pickle=True)
         self.traj_2 = np.load(self.path + "/trajectories2.npy", allow_pickle=True)
-        # self.grids_1 = np.load(self.path + "/grids1.npy", allow_pickle=True)
+        self.grids_1 = np.load(self.path + "/grids1.npy", allow_pickle=True)
         # self.labels = np.load(self.path + "/labels.npy", allow_pickle=True)
         self.labels = np.load(self.path + "/labelhat.npy", allow_pickle=True)
 
