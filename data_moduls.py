@@ -389,31 +389,35 @@ class TrajectoryPredData(BPDataModule):
 
         # label_hat maximuma
         arr = np.zeros_like(self.labels)
-        arr[self.labels.argmax(axis=1)[:,None] == range(self.labels.shape[1])] = 1
+        arr[self.labels.argmax(axis=1)[:, None] == range(self.labels.shape[1])] = 1
         self.labels = arr
+
+        self.grids_1 = np.expand_dims(self.grids_1, axis=1).transpose((0, 1, 3, 4, 2))
 
         if self.shuffle:
             randomperm = torch.randperm(self.traj_1.shape[0])
             self.traj_1 = self.traj_1[randomperm]
             self.traj_2 = self.traj_2[randomperm]
-            # self.grids_1 = self.grids_1[randomperm]
+            self.grids_1 = self.grids_1[randomperm]
             self.labels = self.labels[randomperm]
 
         print(self.traj_1.dtype)
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.traj_1 = torch.split(torch.tensor(self.traj_1.astype(np.float)).float(), int((1 - q) * N))  # .float().to(device)
         self.traj_2 = torch.split(torch.tensor(self.traj_2.astype(np.float)).float(), int((1 - q) * N))
-        # self.grids_1 = torch.split(torch.tensor(self.grids_1).float(), int((1 - q) * N))
+        self.grids_1 = torch.split(torch.tensor(self.grids_1).float(), int((1 - q) * N))
         self.labels = torch.split(torch.tensor(self.labels).long(), int((1 - q) * N))
 
         keys = ["traj1", "traj2", "grid2"]
 
         self.train = [torch.split(self.traj_1[0], self.batch_size),
                       torch.split(self.traj_2[0], self.batch_size),
+                      torch.split(self.grids_1[0], self.batch_size),
                       torch.split(self.labels[0], self.batch_size)]
 
         self.valid = [torch.split(self.traj_1[1], self.batch_size),
                       torch.split(self.traj_2[1], self.batch_size),
+                      torch.split(self.grids_1[1], self.batch_size),
                       torch.split(self.labels[1], self.batch_size)]
 
     def train_dataloader(self, *args, **kwargs):

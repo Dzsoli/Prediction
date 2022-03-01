@@ -16,10 +16,17 @@ from data_moduls import DummyPredictionDataModul
 # from resnet3D import *
 from torchvision.transforms import ToTensor
 from BPtools.utils.trajectory_plot import trajs_to_img_2, traj_to_img, trajs_to_img
-from TaylorNetClone import TaylorNet_3D, BasicQuadBlock_3D
+from TaylorNetClone import conv1x1_3D, conv3x3_3D
 from trajectory_prediction_new import TrajectoryPredData, TrajectoryEncoder, TrajectoryDecoder
 
 import matplotlib.pyplot as plt
+
+
+def conv_block3d(in_ch, out_ch, kernel: Tuple, stride=1, padd=None, pool=False):
+    layers = [nn.Conv3d(in_ch, out_ch, kernel_size=kernel, stride=stride, padding=padd),
+              nn.BatchNorm1d(out_ch),
+              nn.ReLU(inplace=True),]
+    return nn.Sequential(*layers)
 
 
 class Traj_gridPred(BPModule):
@@ -47,12 +54,13 @@ class Traj_gridPred(BPModule):
         self.train()
 
         epoch_loss = 0
-        for traj1, traj2, label in zip(*self.trainer.dataloaders["train"]):
+        for traj1, traj2, grid1, label in zip(*self.trainer.dataloaders["train"]):
             traj1 = traj1.to("cuda")
             traj2 = traj2.to("cuda")
+            grid1 = grid1.to("cuda")
             label = label.to("cuda")
 
-            pred = self(traj1, label)
+            pred = self(traj1, grid1, label)
             loss = self.mse(traj2, pred)
             epoch_loss += loss.item()
 
@@ -90,12 +98,13 @@ class Traj_gridPred(BPModule):
         self.eval()
         epoch_loss = 0
 
-        for traj1, traj2, label in zip(*self.trainer.dataloaders["valid"]):
+        for traj1, traj2, grid1, label in zip(*self.trainer.dataloaders["valid"]):
             traj1 = traj1.to("cuda")
             traj2 = traj2.to("cuda")
+            grid1 = grid1.to("cuda")
             label = label.to("cuda")
             with torch.no_grad():
-                pred = self(traj1, label)
+                pred = self(traj1, grid1, label)
                 loss = self.mse(traj2, pred)
             epoch_loss += loss.item()
 
@@ -130,7 +139,17 @@ class Traj_gridPred(BPModule):
                 plt.close('all')
 
     def configure_optimizers(self):
-        return optim.Adam(list(self.traj_enc.parameters()) +
+        return optim.Adam(list(self.grid_encoder.parameters()) +
+                          list(self.traj_enc.parameters()) +
                           list(self.traj_dec.parameters()), lr=0.001, amsgrad=True)
 
 
+class GridEncoder(nn.Module):
+    def __init__(self, context_dim):
+        super(GridEncoder, self).__init__()
+        self.layer1 = conv_block3d(1, 4, kernel=(3,3,3), padd=(1,1,1))
+        self.res1 = nn.Sequential(
+            conv_block3d(4,4,(3,3,1),padd=(1,1,0)),
+            conv_block3d(4,4,(1,1,3),padd=(0,0,1))
+        )
+        self.layer2 = conv_block3d(4,8,kernel=(3,3,3),stride=2,padd=(1,1,1)) # 8, 64, 30
