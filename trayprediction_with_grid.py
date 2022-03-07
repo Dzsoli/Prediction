@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 
 def conv_block3d(in_ch, out_ch, kernel: Tuple, stride=1, padd=None, pool=False):
     layers = [nn.Conv3d(in_ch, out_ch, kernel_size=kernel, stride=stride, padding=padd),
-              nn.BatchNorm1d(out_ch),
+              nn.BatchNorm3d(out_ch),
               nn.ReLU(inplace=True),]
     return nn.Sequential(*layers)
 
@@ -44,7 +44,7 @@ class Traj_gridPred(BPModule):
         return self.mse(d_traj2, d_pred)
 
     def forward(self, traj1, grid1, label):
-        grid_z = self.grid_encoder(grid1)
+        grid_z = self.grid_encoder(grid1).squeeze(2).squeeze(2)
         traj_z = self.traj_encoder(traj1, label)
         mul = grid_z * traj_z
         pred = self.traj_decoder(mul)
@@ -79,7 +79,7 @@ class Traj_gridPred(BPModule):
         pred_mod = pred + traj1[:, :, -1][:, :, None]
         with torch.no_grad():
             # trajektória képek!
-            if step % 10 == 0:
+            if step % 2 == 0:
                 for n in indexes:
                     real_1 = np.transpose(np.array(traj1.to('cpu'))[n], (1, 0))
                     real_2 = np.transpose(np.array(traj2_mod.to('cpu'))[n], (1, 0))
@@ -123,7 +123,7 @@ class Traj_gridPred(BPModule):
         pred_mod = pred + traj1[:, :, -1][:, :, None]
         with torch.no_grad():
             # trajektória képek!
-            if step % 10 == 0:
+            if step % 2 == 0:
                 for n in indexes:
 
                     real_1 = np.transpose(np.array(traj1.to('cpu'))[n], (1,0))
@@ -140,16 +140,59 @@ class Traj_gridPred(BPModule):
 
     def configure_optimizers(self):
         return optim.Adam(list(self.grid_encoder.parameters()) +
-                          list(self.traj_enc.parameters()) +
-                          list(self.traj_dec.parameters()), lr=0.001, amsgrad=True)
+                          list(self.traj_encoder.parameters()) +
+                          list(self.traj_decoder.parameters()), lr=0.001, amsgrad=True)
 
 
 class GridEncoder(nn.Module):
     def __init__(self, context_dim):
         super(GridEncoder, self).__init__()
-        self.layer1 = conv_block3d(1, 4, kernel=(3,3,3), padd=(1,1,1))
+        self.expand = 2
+        self.layer1 = conv_block3d(1, 4 * self.expand, kernel=(3,3,3), padd=(1,1,1))
         self.res1 = nn.Sequential(
-            conv_block3d(4,4,(3,3,1),padd=(1,1,0)),
-            conv_block3d(4,4,(1,1,3),padd=(0,0,1))
+            conv_block3d(4 * self.expand,4 * self.expand,(3,3,1),padd=(1,1,0)),
+            conv_block3d(4 * self.expand,4 * self.expand,(1,1,3),padd=(0,0,1))
         )
-        self.layer2 = conv_block3d(4,8,kernel=(3,3,3),stride=2,padd=(1,1,1)) # 8, 64, 30
+        self.layer2 = conv_block3d(4 * self.expand,8 * self.expand,kernel=(3,3,3),stride=2,padd=(1,1,1))  # 8, 64, 30
+        self.res2 = nn.Sequential(
+            conv_block3d(8 * self.expand,8 * self.expand,(3,3,1),padd=(1,1,0)),
+            conv_block3d(8 * self.expand,8 * self.expand,(1,1,3),padd=(0,0,1))
+        )
+        self.layer3 = conv_block3d(8 * self.expand, 16 * self.expand, (3, 3, 3), stride=(2,2,2), padd=1)  # 4, 32, 15
+        self.res3 = nn.Sequential(
+            conv_block3d(16 * self.expand, 16 * self.expand, (3, 3, 1), padd=(1, 1, 0)),
+            conv_block3d(16 * self.expand, 16 * self.expand, (1, 1, 3), padd=(0, 0, 1))
+        )
+        self.layer4 = conv_block3d(16 * self.expand, 32 * self.expand, (3, 3, 3), stride=(1,2,1), padd=1)  # 4, 16, 15
+        self.res4 = nn.Sequential(
+            conv_block3d(32 * self.expand, 32 * self.expand, (3, 3, 1), padd=(1, 1, 0)),
+            conv_block3d(32 * self.expand, 32 * self.expand, (1, 1, 3), padd=(0, 0, 1))
+        )
+        self.layer5 = conv_block3d(32 * self.expand, 32 * self.expand, (3, 3, 3), stride=(1, 2, 1), padd=1)  # 4, 8, 15
+        self.context = nn.Conv3d(32 * self.expand, context_dim, (4, 8, 1), padding=0)  # 1, 1, 15
+
+    def forward(self, g):
+        out = self.layer1(g)
+        out = self.res1(out)
+        out = self.layer2(out)
+        out = self.res2(out)
+        out = self.layer3(out)
+        out = self.res3(out)
+        out = self.layer4(out)
+        out = self.res4(out)
+        out = self.layer5(out)
+        z = self.context(out)
+        return z
+
+
+if __name__ == "__main__":
+    grid_encoder = GridEncoder(16)
+    traj_encoder = TrajectoryEncoder(16)
+    traj_decoder = TrajectoryDecoder(16, transpose=False)
+    model = Traj_gridPred(traj_encoder,traj_decoder,grid_encoder)
+    path_tanszek = "C:/Users/oliver/PycharmProjects/full_data/otthonrol"
+    path_otthoni = "D:/dataset"
+    dm = TrajectoryPredData(path_tanszek, split_ratio=0.2, batch_size=128, pred=15, is_grid=True)
+    trainer = BPTrainer(epochs=5000, name="trajectory_prediction_grid15_deriv_att-double-labelhatMAX_Sigmoid_vol2")
+    trainer.fit(model=model, datamodule=dm)
+
