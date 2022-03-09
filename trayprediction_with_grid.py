@@ -192,7 +192,7 @@ if __name__ == "__main__":
     model = Traj_gridPred(traj_encoder,traj_decoder,grid_encoder)
     path_tanszek = "C:/Users/oliver/PycharmProjects/full_data/otthonrol"
     path_otthoni = "D:/dataset"
-    dm = TrajectoryPredData(path_tanszek, split_ratio=0.2, batch_size=128, pred=15, is_grid=True)
+    dm = TrajectoryPredData(path_otthoni, split_ratio=0.2, batch_size=128, pred=15, is_grid=True)
     trainer = BPTrainer(epochs=5000, name="trajectory_prediction_grid15_deriv_att-double-labelhatMAX_Sigmoid_vol2")
     trainer.fit(model=model, datamodule=dm)
 
