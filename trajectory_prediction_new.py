@@ -31,12 +31,13 @@ def conv_block1d(in_ch, out_ch, kernel=3, stride=1, padd=None, pool=False):
 
 
 class TrajectoryEncoder(nn.Module):
-    def __init__(self, context_dim, input_channels=2, seq_length=60, att=True):
+    def __init__(self, context_dim, input_channels=2, seq_length=60, att=True, label=True):
         super(TrajectoryEncoder, self).__init__()
         self.context_dim = context_dim
         self.input_channels = input_channels
         self.seq_length = seq_length
         self.is_att = att
+        self.is_label = label
         self.layer1 = self.conv_block(input_channels, 4)
         self.layer2 = self.conv_block(4, 8, stride=2)
         self.res1 = nn.Sequential(self.conv_block(8, 8), self.conv_block(8, 8))
@@ -69,7 +70,8 @@ class TrajectoryEncoder(nn.Module):
 
         if self.is_att:
             att = self.softmax(self.att(out))
-            att = att * label.unsqueeze(2)
+            if self.is_label:
+                att = att * label.unsqueeze(2)
             att = torch.sum(att, dim=1).unsqueeze(1)
             out = self.context(out)
             out = att * out
