@@ -255,10 +255,10 @@ if __name__ == "__main__":
     traj_encoder = TrajectoryEncoder(16, label=True)
     traj_decoder = TrajectoryDecoder(16, transpose=False)
 
-    model = Traj_gridPred(traj_encoder, traj_decoder, grid_encoder, lam=0.1)
+    model = Traj_gridPred(traj_encoder, traj_decoder, grid_encoder, lam=0.01)
     path_tanszek = "C:/Users/oliver/PycharmProjects/full_data/otthonrol"
     path_otthoni = "D:/dataset"
 
-    dm = TrajectoryPredData(path_otthoni, split_ratio=0.2, batch_size=128, pred=15, is_grid=True)
-    trainer = BPTrainer(epochs=5000, name="trajectory_prediction_grid15_deriv_att-labelhatMAX_double_Sigmoid_VAE01_vol1")
+    dm = TrajectoryPredData(path_tanszek, split_ratio=0.2, batch_size=128, pred=15, is_grid=True)
+    trainer = BPTrainer(epochs=5000, name="trajectory_prediction_grid15_deriv_att-labelhatMAX_double_Sigmoid_VAE001_vol1")
     trainer.fit(model=model, datamodule=dm)
