@@ -361,7 +361,8 @@ class TrajectoryPredData(BPDataModule):
     def prepare_data(self, ):
         self.traj_1 = np.load(self.path + "/trajectories1.npy", allow_pickle=True)
         self.traj_2 = np.load(self.path + "/trajectories2.npy", allow_pickle=True)
-        self.grids_1 = np.load(self.path + "/grids1.npy", allow_pickle=True)
+        if self.is_grid:
+            self.grids_1 = np.load(self.path + "/grids1.npy", allow_pickle=True)
         # self.labels = np.load(self.path + "/labels.npy", allow_pickle=True)
         self.labels = np.load(self.path + "/labelhat.npy", allow_pickle=True)
 
@@ -380,12 +381,37 @@ class TrajectoryPredData(BPDataModule):
         self.traj_1 = np.transpose(self.traj_1, (0, 2, 1))
         self.traj_2 = np.transpose(self.traj_2, (0, 2, 1))
         self.traj_2 = self.traj_2[:,:,0:self.pred]
+        # N, feature, T
 
-        self.traj_1[:, 1, :] = 0.05 * self.traj_1[:, 1, :]
-        self.traj_2[:, 1, :] = 0.05 * self.traj_2[:, 1, :]
+        # y irányban 20 méterrel normálás
+        # self.traj_1[:, 1, :] = 0.05 * self.traj_1[:, 1, :]
+        # self.traj_2[:, 1, :] = 0.05 * self.traj_2[:, 1, :]
 
         self.traj_2 = self.traj_2 - self.traj_1[:, :, -1][:, :, None]
         self.traj_1 = self.traj_1 - self.traj_1[:, :, 0][:, :, None]
+
+        # x min/max és y max
+        y_max2 = np.max(self.traj_2[:, 1, -1])
+        y_max1 = np.max(self.traj_1[:, 1, -1])
+
+        x_min1 = np.min(self.traj_1[:, 0, :])
+        x_max1 = np.max(self.traj_1[:, 0, :])
+
+        x_min2 = np.min(self.traj_2[:, 0, :])
+        x_max2 = np.max(self.traj_2[:, 0, :])
+
+        self.traj_1[:, 1, :] = self.traj_1[:, 1, :] * (1.0 / y_max1)
+        self.traj_2[:, 1, :] = self.traj_2[:, 1, :] * (1.0 / y_max2)
+
+        self.traj_1[:, 0, :] = (self.traj_1[:, 0, :] - x_min1) * (1.0 / (x_max1 - x_min1))
+        self.traj_2[:, 0, :] = (self.traj_2[:, 0, :] - x_min2) * (1.0 / (x_max2 - x_min2))
+
+        self.y_max2 = y_max2
+        self.y_max1 = y_max1
+        self.x_min1 = x_min1
+        self.x_max1 = x_max1
+        self.x_min2 = x_min2
+        self.x_max2 = x_max2
 
         # label_hat maximuma
         arr = np.zeros_like(self.labels)

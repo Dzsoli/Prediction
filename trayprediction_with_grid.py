@@ -67,6 +67,30 @@ class Traj_gridPred(BPModule):
             return pred, mu, logvar
         return pred
 
+    @property
+    def x_max1(self):
+        return self.trainer.datamodule.x_max1
+
+    @property
+    def x_max2(self):
+        return self.trainer.datamodule.x_max2
+
+    @property
+    def x_min1(self):
+        return self.trainer.datamodule.x_min1
+
+    @property
+    def x_min2(self):
+        return self.trainer.datamodule.x_min2
+
+    @property
+    def y_max1(self):
+        return self.trainer.datamodule.y_max1
+
+    @property
+    def y_max2(self):
+        return self.trainer.datamodule.y_max2
+
     def training_step(self, optim_configuration, step):
         self.train()
 
@@ -109,15 +133,30 @@ class Traj_gridPred(BPModule):
         indexes = [1, 2, 3, 4, 5, 6]
         img_batch = np.zeros((len(indexes), 3, 480, 640))
         i = 0
-        traj2_mod = traj2 + traj1[:, :, -1][:, :, None]
-        pred_mod = pred + traj1[:, :, -1][:, :, None]
+        # transform back
+        #TODO
+        # traj2_mod = traj2 + traj1[:, :, -1][:, :, None]
+        # pred_mod = pred + traj1[:, :, -1][:, :, None]
         with torch.no_grad():
             # trajektória képek!
             if step % 2 == 0:
                 for n in indexes:
                     real_1 = np.transpose(np.array(traj1.to('cpu'))[n], (1, 0))
-                    real_2 = np.transpose(np.array(traj2_mod.to('cpu'))[n], (1, 0))
-                    out = np.transpose(np.array(pred_mod.to('cpu'))[n], (1, 0))
+                    real_2 = np.transpose(np.array(traj2.to('cpu'))[n], (1, 0))
+                    out = np.transpose(np.array(pred.to('cpu'))[n], (1, 0))
+
+                    # transform back
+                    real_1[:, 1] = real_1[:, 1] * self.y_max1
+                    real_1[:, 0] = real_1[:, 0] * (self.x_max1 - self.x_min1) + self.x_min1
+
+                    real_2[:, 1] = real_2[:, 1] * self.y_max2
+                    real_2[:, 0] = real_2[:, 0] * (self.x_max2 - self.x_min2) + self.x_min2
+
+                    out[:, 1] = out[:, 1] * self.y_max2
+                    out[:, 0] = out[:, 0] * (self.x_max2 - self.x_min2) + self.x_min2
+
+                    real_2 = real_2 + real_1[-1, :][None, :]
+                    out = out + real_1[-1, :][None, :]
 
                     img = trajs_to_img_2("Real and generated. N= " + str(n), traj_1=real_1, traj_2=real_2,
                                          prediction=out)
@@ -162,15 +201,28 @@ class Traj_gridPred(BPModule):
         indexes = [1, 2, 3, 4, 5, 6]
         img_batch = np.zeros((len(indexes), 3, 480, 640))
         i = 0
-        traj2_mod = traj2 + traj1[:, :, -1][:, :, None]
-        pred_mod = pred + traj1[:, :, -1][:, :, None]
+        # traj2_mod = traj2 + traj1[:, :, -1][:, :, None]
+        # pred_mod = pred + traj1[:, :, -1][:, :, None]
         with torch.no_grad():
             # trajektória képek!
             if step % 2 == 0:
                 for n in indexes:
                     real_1 = np.transpose(np.array(traj1.to('cpu'))[n], (1, 0))
-                    real_2 = np.transpose(np.array(traj2_mod.to('cpu'))[n], (1, 0))
-                    out = np.transpose(np.array(pred_mod.to('cpu'))[n], (1, 0))
+                    real_2 = np.transpose(np.array(traj2.to('cpu'))[n], (1, 0))
+                    out = np.transpose(np.array(pred.to('cpu'))[n], (1, 0))
+
+                    # transform back
+                    real_1[:, 1] = real_1[:, 1] * self.y_max1
+                    real_1[:, 0] = real_1[:, 0] * (self.x_max1 - self.x_min1) + self.x_min1
+
+                    real_2[:, 1] = real_2[:, 1] * self.y_max2
+                    real_2[:, 0] = real_2[:, 0] * (self.x_max2 - self.x_min2) + self.x_min2
+
+                    out[:, 1] = out[:, 1] * self.y_max2
+                    out[:, 0] = out[:, 0] * (self.x_max2 - self.x_min2) + self.x_min2
+
+                    real_2 = real_2 + real_1[-1, :][None, :]
+                    out = out + real_1[-1, :][None, :]
 
                     img = trajs_to_img_2("Real and generated. N= " + str(n), traj_1=real_1, traj_2=real_2,
                                          prediction=out)
@@ -259,6 +311,6 @@ if __name__ == "__main__":
     path_tanszek = "C:/Users/oliver/PycharmProjects/full_data/otthonrol"
     path_otthoni = "D:/dataset"
 
-    dm = TrajectoryPredData(path_tanszek, split_ratio=0.2, batch_size=128, pred=15, is_grid=True)
-    trainer = BPTrainer(epochs=5000, name="trajectory_prediction_grid15_deriv_att-labelhatMAX_double_Sigmoid_VAE001_vol1")
+    dm = TrajectoryPredData(path_otthoni, split_ratio=0.2, batch_size=128, pred=15, is_grid=True)
+    trainer = BPTrainer(epochs=5000, name="NORM_trajectory_prediction_grid15_deriv_att-labelhatMAX_double_Sigmoid_VAE01_vol1")
     trainer.fit(model=model, datamodule=dm)
