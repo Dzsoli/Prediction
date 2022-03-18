@@ -41,8 +41,8 @@ class Traj_gridPred(BPModule):
         self.lam = lam
 
     def mse_diff(self, traj2, pred):
-        d_traj2 = traj2[:, :, 1:] - traj2[:, :, 0:-1]
-        d_pred = pred[:, :, 1:] - pred[:, :, 0:-1]
+        d_traj2 = traj2[:, 1, 1:] - traj2[:, 1, 0:-1]
+        d_pred = pred[:, 1, 1:] - pred[:, 1, 0:-1]
         return self.mse(d_traj2, d_pred)
 
     def sampler(self, mu, logvar):
@@ -68,12 +68,12 @@ class Traj_gridPred(BPModule):
         return pred
 
     @property
-    def x_max1(self):
-        return self.trainer.datamodule.x_max1
+    def delta1(self):
+        return self.trainer.datamodule.delta1
 
     @property
-    def x_max2(self):
-        return self.trainer.datamodule.x_max2
+    def delta2(self):
+        return self.trainer.datamodule.delta2
 
     @property
     def x_min1(self):
@@ -147,13 +147,13 @@ class Traj_gridPred(BPModule):
 
                     # transform back
                     real_1[:, 1] = real_1[:, 1] * self.y_max1
-                    real_1[:, 0] = real_1[:, 0] * (self.x_max1 - self.x_min1) + self.x_min1
+                    real_1[:, 0] = real_1[:, 0] * self.delta1 + self.x_min1
 
                     real_2[:, 1] = real_2[:, 1] * self.y_max2
-                    real_2[:, 0] = real_2[:, 0] * (self.x_max2 - self.x_min2) + self.x_min2
+                    real_2[:, 0] = real_2[:, 0] * self.delta2 + self.x_min2
 
                     out[:, 1] = out[:, 1] * self.y_max2
-                    out[:, 0] = out[:, 0] * (self.x_max2 - self.x_min2) + self.x_min2
+                    out[:, 0] = out[:, 0] * self.delta2 + self.x_min2
 
                     real_2 = real_2 + real_1[-1, :][None, :]
                     out = out + real_1[-1, :][None, :]
@@ -213,13 +213,13 @@ class Traj_gridPred(BPModule):
 
                     # transform back
                     real_1[:, 1] = real_1[:, 1] * self.y_max1
-                    real_1[:, 0] = real_1[:, 0] * (self.x_max1 - self.x_min1) + self.x_min1
+                    real_1[:, 0] = real_1[:, 0] * self.delta1 + self.x_min1
 
                     real_2[:, 1] = real_2[:, 1] * self.y_max2
-                    real_2[:, 0] = real_2[:, 0] * (self.x_max2 - self.x_min2) + self.x_min2
+                    real_2[:, 0] = real_2[:, 0] * self.delta2 + self.x_min2
 
                     out[:, 1] = out[:, 1] * self.y_max2
-                    out[:, 0] = out[:, 0] * (self.x_max2 - self.x_min2) + self.x_min2
+                    out[:, 0] = out[:, 0] * self.delta2 + self.x_min2
 
                     real_2 = real_2 + real_1[-1, :][None, :]
                     out = out + real_1[-1, :][None, :]
@@ -234,9 +234,13 @@ class Traj_gridPred(BPModule):
                 plt.close('all')
 
     def configure_optimizers(self):
-        return optim.Adam(list(self.grid_encoder.parameters()) +
+        # return optim.Adam(list(self.grid_encoder.parameters()) +
+        #                   list(self.traj_encoder.parameters()) +
+        #                   list(self.traj_decoder.parameters()), lr=0.001, amsgrad=True)
+
+        return optim.SGD(list(self.grid_encoder.parameters()) +
                           list(self.traj_encoder.parameters()) +
-                          list(self.traj_decoder.parameters()), lr=0.001, amsgrad=True)
+                          list(self.traj_decoder.parameters()), lr=0.01, weight_decay=0.0002)
 
 
 class GridEncoder(nn.Module):
@@ -311,6 +315,6 @@ if __name__ == "__main__":
     path_tanszek = "C:/Users/oliver/PycharmProjects/full_data/otthonrol"
     path_otthoni = "D:/dataset"
 
-    dm = TrajectoryPredData(path_otthoni, split_ratio=0.2, batch_size=128, pred=15, is_grid=True)
-    trainer = BPTrainer(epochs=5000, name="NORM_trajectory_prediction_grid15_deriv_att-labelhatMAX_double_Sigmoid_VAE01_vol1")
+    dm = TrajectoryPredData(path_tanszek, split_ratio=0.2, batch_size=128, pred=15, is_grid=True)
+    trainer = BPTrainer(epochs=5000, name="MEAN-STD_tpgd15_sgd-01-0002_Yderiv_att-labelhatMAX_double_Sigmoid_VAE001_vol1")
     trainer.fit(model=model, datamodule=dm)
