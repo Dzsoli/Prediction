@@ -570,6 +570,7 @@ class Grid3DSelected(BPDataModule):
         # self.traj_1 = self.traj_1 - self.traj_1[:, :, 0][:, :, None]
 
         if self.shuffle:
+            torch.manual_seed(420)
             randomperm = torch.randperm(self.grids_1.shape[0], generator=torch.Generator().manual_seed(420))
             # self.traj_1 = self.traj_1[randomperm]
             self.grids_1 = self.grids_1[randomperm]
