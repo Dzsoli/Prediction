@@ -240,7 +240,7 @@ class Traj_gridPred(BPModule):
 
         return optim.SGD(list(self.grid_encoder.parameters()) +
                           list(self.traj_encoder.parameters()) +
-                          list(self.traj_decoder.parameters()), lr=0.01, weight_decay=0.0002)
+                          list(self.traj_decoder.parameters()), lr=0.005, weight_decay=0.0002)
 
 
 class GridEncoder(nn.Module):

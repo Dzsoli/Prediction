@@ -319,7 +319,7 @@ if __name__ == "__main__":
     import inspect
     path_tanszek = "C:/Users/oliver/PycharmProjects/full_data/otthonrol"
     path_otthoni = "D:/dataset"
-    dm = TrajectoryPredData_version2(path_otthoni, split_ratio=0.2, batch_size=128, pred=15, is_grid=True)
+    dm = TrajectoryPredData_version2(path_tanszek, split_ratio=0.2, batch_size=128, pred=15, is_grid=True)
     # dm.prepare_data()
     # dm.setup()
 
@@ -328,10 +328,12 @@ if __name__ == "__main__":
     grid_encoder = GridEncoder(16, variational=True)
 
     model = Traj_gridPred_version2(traj_encoder, traj_decoder, grid_encoder, lam=0.01)
+    model.load_state_dict(torch.load(
+        "log_1MEAN-0STD_tpgd75_sgd-01-0002_vol2/model_state_dict_1MEAN-0STD_tpgd75_sgd-01-0002_vol2"))
     # print(model)
 
     trainer = BPTrainer(epochs=5000,
-                        name="1MEAN-0STD_tpgd75_sgd-01-0002_vol1")
+                        name="1MEAN-0STD_tpgd75_sgd-01-0002_vol2_part2")
     trainer.fit(model=model, datamodule=dm)
     # print(traj_encoder)
     #
