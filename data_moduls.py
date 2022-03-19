@@ -402,6 +402,7 @@ class TrajectoryPredData(BPDataModule):
 
         self.y_max2 = np.std(self.traj_2[:, 1, -1])
         self.y_max1 = np.std(self.traj_1[:, 1, -1])
+        # TODO baszki itt nem [:, 1, :] kellene?
         self.x_min1 = np.mean(self.traj_1[:, 0, :])
         self.x_min2 = np.mean(self.traj_2[:, 0, :])
         # self.delta1 = x_max1 - self.x_min1
@@ -414,8 +415,6 @@ class TrajectoryPredData(BPDataModule):
 
         self.traj_1[:, 0, :] = (self.traj_1[:, 0, :] - self.x_min1) * (1.0 / self.delta1)
         self.traj_2[:, 0, :] = (self.traj_2[:, 0, :] - self.x_min2) * (1.0 / self.delta2)
-
-
 
         # label_hat maximuma
         arr = np.zeros_like(self.labels)
@@ -458,6 +457,68 @@ class TrajectoryPredData(BPDataModule):
 
     def test_dataloader(self, *args, **kwargs):
         return self.test
+
+
+class TrajectoryPredData_version2(TrajectoryPredData):
+    def __init__(self, *args, **kwargs):
+        super(TrajectoryPredData_version2, self).__init__(*args, **kwargs)
+
+    def setup(self, stage: Optional[str] = None):
+        N = self.traj_1.shape[0]
+        q = self.q
+        self.traj_1 = np.transpose(self.traj_1, (0, 2, 1))
+        self.traj_2 = np.transpose(self.traj_2, (0, 2, 1))
+        self.traj_2 = self.traj_2[:, :, 0:self.pred]
+
+        # Translate to the origin!! The two fragments are not separated like in base class, traj_2 is not in the origin
+        self.traj_2 = self.traj_2 - self.traj_1[:, :, 0][:, :, None]
+        self.traj_1 = self.traj_1 - self.traj_1[:, :, 0][:, :, None]
+
+        self.Ystd = np.std(np.concatenate((self.traj_1, self.traj_2), axis=2)[:, 1, :])
+        self.Xstd = np.std(np.concatenate((self.traj_1, self.traj_2), axis=2)[:, 0, :])
+
+        self.Ymean = np.mean(np.concatenate((self.traj_1, self.traj_2), axis=2)[:, 1, :])
+        self.Xmean = np.mean(np.concatenate((self.traj_1, self.traj_2), axis=2)[:, 0, :])
+
+        self.traj_1[:, 1, :] = (self.traj_1[:, 1, :] - self.Ymean) * (1.0 / self.Ystd)
+        self.traj_2[:, 1, :] = (self.traj_2[:, 1, :] - self.Ymean) * (1.0 / self.Ystd)
+
+        self.traj_1[:, 0, :] = (self.traj_1[:, 0, :] - self.Xmean) * (1.0 / self.Xstd)
+        self.traj_2[:, 0, :] = (self.traj_2[:, 0, :] - self.Xmean) * (1.0 / self.Xstd)
+
+        # label_hat maximuma
+        arr = np.zeros_like(self.labels)
+        arr[self.labels.argmax(axis=1)[:, None] == range(self.labels.shape[1])] = 1
+        self.labels = arr
+
+        self.grids_1 = np.expand_dims(self.grids_1, axis=1).transpose((0, 1, 3, 4, 2))
+
+        if self.shuffle:
+            randomperm = torch.randperm(self.traj_1.shape[0])
+            self.traj_1 = self.traj_1[randomperm]
+            self.traj_2 = self.traj_2[randomperm]
+            self.grids_1 = self.grids_1[randomperm]
+            self.labels = self.labels[randomperm]
+
+        print(self.traj_1.dtype)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.traj_1 = torch.split(torch.tensor(self.traj_1.astype(np.float)).float(),
+                                  int((1 - q) * N))  # .float().to(device)
+        self.traj_2 = torch.split(torch.tensor(self.traj_2.astype(np.float)).float(), int((1 - q) * N))
+        self.grids_1 = torch.split(torch.tensor(self.grids_1).float(), int((1 - q) * N))
+        self.labels = torch.split(torch.tensor(self.labels).long(), int((1 - q) * N))
+
+        keys = ["traj1", "traj2", "grid2"]
+
+        self.train = [torch.split(self.traj_1[0], self.batch_size),
+                      torch.split(self.traj_2[0], self.batch_size),
+                      torch.split(self.grids_1[0], self.batch_size),
+                      torch.split(self.labels[0], self.batch_size)]
+
+        self.valid = [torch.split(self.traj_1[1], self.batch_size),
+                      torch.split(self.traj_2[1], self.batch_size),
+                      torch.split(self.grids_1[1], self.batch_size),
+                      torch.split(self.labels[1], self.batch_size)]
 
 
 class Grid3DSelected(BPDataModule):
