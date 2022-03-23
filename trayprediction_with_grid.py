@@ -41,8 +41,8 @@ class Traj_gridPred(BPModule):
         self.lam = lam
 
     def mse_diff(self, traj2, pred):
-        d_traj2 = traj2[:, 1, 1:] - traj2[:, 1, 0:-1]
-        d_pred = pred[:, 1, 1:] - pred[:, 1, 0:-1]
+        d_traj2 = traj2[:, :, 1:] - traj2[:, :, 0:-1]
+        d_pred = pred[:, :, 1:] - pred[:, :, 0:-1]
         return self.mse(d_traj2, d_pred)
 
     def sampler(self, mu, logvar):
@@ -240,7 +240,7 @@ class Traj_gridPred(BPModule):
 
         return optim.SGD(list(self.grid_encoder.parameters()) +
                           list(self.traj_encoder.parameters()) +
-                          list(self.traj_decoder.parameters()), lr=0.005, weight_decay=0.0002)
+                          list(self.traj_decoder.parameters()), lr=0.01, weight_decay=0.0002)
 
 
 class GridEncoder(nn.Module):

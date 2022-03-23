@@ -424,6 +424,7 @@ class TrajectoryPredData(BPDataModule):
         self.grids_1 = np.expand_dims(self.grids_1, axis=1).transpose((0, 1, 3, 4, 2))
 
         if self.shuffle:
+            torch.manual_seed(420)
             randomperm = torch.randperm(self.traj_1.shape[0])
             self.traj_1 = self.traj_1[randomperm]
             self.traj_2 = self.traj_2[randomperm]
@@ -494,6 +495,7 @@ class TrajectoryPredData_version2(TrajectoryPredData):
         self.grids_1 = np.expand_dims(self.grids_1, axis=1).transpose((0, 1, 3, 4, 2))
 
         if self.shuffle:
+            torch.manual_seed(420)
             randomperm = torch.randperm(self.traj_1.shape[0])
             self.traj_1 = self.traj_1[randomperm]
             self.traj_2 = self.traj_2[randomperm]

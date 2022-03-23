@@ -44,7 +44,11 @@ class TrajectoryEncoderVar(nn.Module):
         # self.sigmoid = nn.Sigmoid()
         self.is_var = False if vae_expands is None else True
         self.layers = []
+        self.att_mu = []
+        self.att_logvar = []
         # self.layer1 = self.conv_block(input_channels, self.internal)
+        # TODO: attentionnak akkor kell egy külön expands és akkor jóvan
+        att_expands = [e for e in vae_expands if e>0]
         for exp in expands:
             self.block(exp)
         if not self.is_var:
@@ -66,6 +70,12 @@ class TrajectoryEncoderVar(nn.Module):
             self.blocks_logvar = nn.Sequential(*self.layers)
             self.layers = []
 
+            self.internal = self.layers[0][0].in_channels
+            N=len(att_expands)
+            ch =
+            for i, exp in enumerate(att_expands):
+                self.att_mu.append(conv_block1d(in_ch=self.internal-i*))
+
     def conv_block(self, exp=True, stride=1, padd=None, pool=False):
         out_ch = self.internal * self.expand if exp else self.internal
         return conv_block1d(self.internal, out_ch, 3, stride, padd, pool)
@@ -83,6 +93,7 @@ class TrajectoryEncoderVar(nn.Module):
             self.layers.append(ResBlock(res=res))
 
     def forward(self, x):
+        attention =
         inner = self.blocks1(x)
         if self.is_var:
             mu = self.blocks_mu(inner)
@@ -328,12 +339,12 @@ if __name__ == "__main__":
     grid_encoder = GridEncoder(16, variational=True)
 
     model = Traj_gridPred_version2(traj_encoder, traj_decoder, grid_encoder, lam=0.01)
-    model.load_state_dict(torch.load(
-        "log_1MEAN-0STD_tpgd75_sgd-01-0002_vol2/model_state_dict_1MEAN-0STD_tpgd75_sgd-01-0002_vol2"))
+    # model.load_state_dict(torch.load(
+    #     "log_1MEAN-0STD_tpgd75_sgd-01-0002_vol2/model_state_dict_1MEAN-0STD_tpgd75_sgd-01-0002_vol2"))
     # print(model)
 
     trainer = BPTrainer(epochs=5000,
-                        name="1MEAN-0STD_tpgd75_sgd-01-0002_vol2_part2")
+                        name="1MEAN-0STD_tpgd75_sgd-01-0002_diffXY_seed420_part1")
     trainer.fit(model=model, datamodule=dm)
     # print(traj_encoder)
     #
