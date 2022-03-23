@@ -331,7 +331,7 @@ if __name__ == "__main__":
     # print(model)
 
     trainer = BPTrainer(epochs=5000,
-                        name="1MEAN-0STD_tpgd75_sgd-01-0002_vol1")
+                        name="1MEAN-0STD_tpgd75_sgd-01-0002_seed420_part1")
     trainer.fit(model=model, datamodule=dm)
     # print(traj_encoder)
     #
